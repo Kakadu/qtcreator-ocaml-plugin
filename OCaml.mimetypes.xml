@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!-- In the same manner as ruby file is done -->
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+  <mime-type type="text/x-ocamlcreator-project">
+    <sub-class-of type="text/plain"/>
+    <comment>OCaml project file</comment>
+    <glob pattern="*.ocamlproject"/>
+  </mime-type>
+
+  <mime-type type="application/x-ocaml">
+    <sub-class-of type="text/plain"/>
+    <comment>Ruby source file</comment>
+    <glob pattern="*.ml"/>
+    <glob pattern="*.mli"/>
+    <!--<glob pattern="*.ml"/>
+    <glob pattern="*.rake"/>
+    <glob pattern="*.gemspec"/>
+    <glob pattern="Gemfile"/>
+    <glob pattern="Rakefile"/>
+    -->
+
+    <!--<magic priority="1">
+      <match type="string" offset="0" value="#!/usr/bin/env ruby"/>
+    </magic>-->
+  </mime-type>
+</mime-info>

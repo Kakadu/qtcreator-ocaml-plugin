@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" binding="early" xmlns:qt="http://www.qt.io/2015/02/scxml-ext" name="MerlinFSM" qt:editorversion="4.1.82" initial="wrapper">
+    <qt:editorinfo initialGeometry="21.35;-2.04;-20;-20;40;40"/>
+    <datamodel/>
+    <state id="wrapper">
+        <qt:editorinfo scenegeometry="142.30;177.88;62.30;22.20;1050.80;765.06" geometry="142.30;177.88;-80;-155.68;1050.80;765.06"/>
+        <state id="On">
+            <qt:editorinfo scenegeometry="500.10;263.26;252.38;117.20;840.72;650.06" geometry="357.80;85.38;-247.72;-146.06;840.72;650.06"/>
+            <state id="Default">
+                <qt:editorinfo scenegeometry="361.86;255.14;301.86;205.14;164;100" geometry="-138.24;-8.12;-60;-50;164;100"/>
+                <transition type="external" event="sendCode" target="CodeSent"/>
+            </state>
+            <state id="CodeSent">
+                <qt:editorinfo scenegeometry="318.15;404.54;295.92;380.04;179.47;137" geometry="-181.95;141.28;-22.23;-24.50;179.47;137"/>
+                <transition type="external" event="askDiagnostics" target="DiagnosticsAsked"/>
+                <transition type="external" event="errorHappened" target="Default">
+                    <qt:editorinfo localGeometry="122.57;-1.41;122.57;-190.26"/>
+                </transition>
+            </state>
+            <state id="DiagnosticsAsked">
+                <qt:editorinfo scenegeometry="355.75;635.28;295.75;585.28;179;160" geometry="-144.35;372.02;-60;-50;179;160"/>
+                <transition type="external" event="errorHappened" target="Default">
+                    <qt:editorinfo endTargetFactors="82.39;45.61" localGeometry="176.85;0;176.85;-416.02"/>
+                </transition>
+            </state>
+            <onentry>
+                <send event="entry_to_on"/>
+            </onentry>
+        </state>
+    </state>
+</scxml>

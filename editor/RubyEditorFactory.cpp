@@ -22,6 +22,7 @@ EditorFactory::EditorFactory()
     setId(Constants::EditorId);
     setDisplayName(qApp->translate("OpenWith::Editors", Constants::EditorDisplayName));
     addMimeType(Constants::MimeType);
+    addMimeType(Constants::OCaml::MimeType);
     addMimeType(Constants::ProjectMimeType);
 
     setDocumentCreator([]() { return new EditorDocument; });

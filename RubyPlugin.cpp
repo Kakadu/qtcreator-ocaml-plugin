@@ -49,9 +49,16 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
 {
     Q_UNUSED(errorString);
 
+    // removed in commit bd8f70374d43ea2c668e95d105cb019f18597572
+    //Utils::MimeDatabase::addMimeTypes(QLatin1String(":/rubysupport/Ruby.mimetypes.xml"));
+    //Utils::MimeDatabase::addMimeTypes(QLatin1String(":/rubysupport/OCaml.mimetypes.xml"));
+
     initializeToolsSettings();
 
     addAutoReleasedObject(new EditorFactory);
+
+    //ProjectExplorer::ProjectManager::registerProjectType<Project>(Constants::ProjectMimeType);
+
     addAutoReleasedObject(new SymbolFilter([](const QString &file) {
         return CodeModel::instance()->methodsIn(file);
     }, "Ruby Methods in Current Document", '.'));
@@ -131,6 +138,7 @@ void Plugin::initializeToolsSettings()
 
     // mimetypes to be handled
     TextEditor::TextEditorSettings::registerMimeTypeForLanguageId(Constants::MimeType, Constants::SettingsId);
+    TextEditor::TextEditorSettings::registerMimeTypeForLanguageId(Constants::OCaml::MimeType, Constants::OCaml::SettingsId);
 }
 
 }

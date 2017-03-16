@@ -15,6 +15,19 @@ const char LangRuby[] = "RUBY";
 const char MimeType[] = "application/x-ruby";
 const char ProjectMimeType[] = "text/x-rubycreator-project";
 
+namespace OCaml {
+const char EditorId[] = "OCaml.OCamlEditor";
+const char ProjectId[] = "OCaml.Project";
+const char RubyIcon[] = ":/rubysupport/Ruby.png";
+const char SettingsId[] = "OCaml.Settings";
+const char SnippetGroupId[] = "OCaml.Snippets";
+const char EditorDisplayName[] = "OCaml Editor";
+const char LangRuby[] = "OCAML";
+
+const char MimeType[] = "application/x-ocaml";
+const char ProjectMimeType[] = "text/x-ocamlcreator-project";
+
+}
 }
 }
 
