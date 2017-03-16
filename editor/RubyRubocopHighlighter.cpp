@@ -47,16 +47,25 @@ RubocopHighlighter::RubocopHighlighter()
     m_extraFormats[2].setUnderlineColor(Qt::red);
 
     QVariantMap m;
-    m.insert("wrapper", true);
+    //m.insert("wrapper", true);
     m.insert("On",      true);
     m.insert("Default", true);
     m.insert("CodeSent", false);
     m.insert("DiagnosticsAsked", false);
+    //m.insert("GoToDefault", false);
     m_chart.setInitialValues(m);
 
-    m_chart.connectToState("CodeSent", [](bool) {
-        qDebug() << "MerlinFSM in state CodeSent";
-    });
+    static QVector<QString> connectedStates;
+    connectedStates << "Default" << "CodeSent" << "DiagnosticsAsked"
+      << "GoToDefault";
+
+    foreach (const QString& s, connectedStates) {
+        m_chart.connectToState(s, [s](bool b) {
+            qDebug() << qPrintable(QString("MerlinFSM in state %1 (%2)")
+                                   .arg(s).arg(b));
+        });
+    }
+
     m_chart.connectToEvent("entry_to_on", [](const QScxmlEvent &event) {
         qDebug() << "MerlinFSM got event " << event.name();
     });
@@ -126,18 +135,26 @@ void RubocopHighlighter::makeMerlinAnalyzeBuffer(const QByteArray &file)
     QJsonArray obj {"tell","start","end", QString::fromLocal8Bit(file)};
     QJsonDocument doc(obj);
     QByteArray query(doc.toJson(QJsonDocument::Compact));
-    m_chart.submitEvent("sendCode");
+    sendFSMevent("sendCode");
     m_rubocop->write(query);
     qDebug () << "query" << obj;
+}
+
+inline void RubocopHighlighter::sendFSMevent(const QString &s)
+{
+    qDebug() << QString("Sending event '%1' when current states are ").arg(s)
+             << m_chart.activeStateNames(true);
+    m_chart.submitEvent(s);
 }
 
 void RubocopHighlighter::makeMerlinAskDiagnostics()
 {
     const QByteArray query = "[\"errors\"]";
-    m_chart.submitEvent("askDiagnostics");
+    sendFSMevent("askDiagnostics");
     m_rubocop->write(query);
     qDebug () << "query" << query;
 }
+
 void RubocopHighlighter::initRubocopProcess()
 {
     qDebug() << "initProcess";
@@ -205,25 +222,27 @@ void RubocopHighlighter::finishRuboCopHighlight()
         if (m_chart.activeStateNames() == QStringList("CodeSent"))
             makeMerlinAskDiagnostics();
     } else if (isReturnFalse(arr)) {
-        m_chart.submitEvent("errorHappend");
+        sendFSMevent("errorHappend");
     } else if ( (diags = processMerlinErrors(arr.at(1)))) {
-        qDebug() << diags.messages;
+//        qDebug() << diags.messages;
+//        qDebug() << "count = " << diags.messages.count();
         Offenses offenses;
 
         for (const Range& r : diags.messages.keys()) {
-
             offenses << TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, 2);
-
+            //offenses << TextEditor::HighlightingResult(1,1,40, 1);
+            //break;
         }
         RubocopFuture rubocopFuture(offenses);
+        TextEditor::SemanticHighlighter::clearExtraAdditionalFormatsUntilEnd(m_document->syntaxHighlighter(),
+                                                                             rubocopFuture.future());
         TextEditor::SemanticHighlighter::incrementalApplyExtraAdditionalFormats(m_document->syntaxHighlighter(),
                                                                                 rubocopFuture.future(), 0,
                                                                                 offenses.count(), m_extraFormats);
-        TextEditor::SemanticHighlighter::clearExtraAdditionalFormatsUntilEnd(m_document->syntaxHighlighter(),
-                                                                             rubocopFuture.future());
         //result << TextEditor::HighlightingResult(lineN, column, length, kind);
+        sendFSMevent("okay");
     } else {
-        m_chart.submitEvent("errorHappend");
+        sendFSMevent("errorHappend");
     }
 
 

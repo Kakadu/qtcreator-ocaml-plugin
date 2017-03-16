@@ -8,3 +8,6 @@
 Makefile*
 Ruby.json
 *.user*
+.qmake.stash
+/MerlinFSM.cpp
+/MerlinFSM.h

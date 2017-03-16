@@ -90,6 +90,7 @@ public:
 private:
     Diagnostics processMerlinErrors(const QJsonValue& v);
     void makeMerlinAnalyzeBuffer(const QByteArray&);
+    inline void sendFSMevent(const QString&);
     void makeMerlinAskDiagnostics();
     bool m_rubocopFound;
     bool m_busy;
