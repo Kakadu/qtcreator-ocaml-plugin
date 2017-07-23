@@ -6,7 +6,7 @@
 
 #include "RubyScanner.h"
 
-namespace Ruby {
+namespace OCamlCreator {
 void registerQuickFixes(ExtensionSystem::IPlugin *plugIn)
 {
     plugIn->addAutoReleasedObject(new SwitchStringQuotes);
@@ -20,7 +20,7 @@ void SwitchStringQuotes::matchingOperations(const TextEditor::QuickFixInterface 
     int position = userCursorPosition - block.position();
     Token token = Scanner::tokenAt(&line, position);
 
-    if (token.kind != Ruby::Token::String)
+    if (token.kind != OCamlCreator::Token::String)
         return;
 
     SwitchStringQuotesOp* operation = new SwitchStringQuotesOp(block, token, userCursorPosition);

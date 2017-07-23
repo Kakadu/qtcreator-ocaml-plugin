@@ -7,7 +7,7 @@
 
 #include <cstring>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 static const char *const RUBY_KEYWORDS[] = {
     "BEGIN",

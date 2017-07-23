@@ -3,7 +3,7 @@
 
 #include <texteditor/textdocument.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class EditorDocument : public TextEditor::TextDocument
 {

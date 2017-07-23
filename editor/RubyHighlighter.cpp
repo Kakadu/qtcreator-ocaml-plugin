@@ -7,7 +7,7 @@
 #include <texteditor/fontsettings.h>
 #include <QDebug>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 QVector<QTextCharFormat> Highlighter::m_formats;
 

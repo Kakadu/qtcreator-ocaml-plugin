@@ -7,7 +7,7 @@
 
 #include <QIcon>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class CompletionAssistProvider : public TextEditor::CompletionAssistProvider
 {

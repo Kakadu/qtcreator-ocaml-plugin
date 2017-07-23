@@ -4,7 +4,7 @@
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/idocument.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 SymbolFilter::SymbolFilter(SymbolProvider provider, const char *description, QChar shortcut)
     : m_icon(":/codemodel/images/func.png")

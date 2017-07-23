@@ -7,7 +7,7 @@
 #include <QStringList>
 #include <QSet>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 QChar translateDelimiter(QChar ch);
 

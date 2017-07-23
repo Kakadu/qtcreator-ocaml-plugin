@@ -10,11 +10,11 @@
 
 #include <QLabel>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 Core::Id CodeStylePreferencesFactory::languageId()
 {
-    return Constants::SettingsId;
+    return Constants::OCaml::SettingsId;
 }
 
 QString CodeStylePreferencesFactory::displayName()
@@ -41,7 +41,7 @@ TextEditor::SnippetProvider *CodeStylePreferencesFactory::snippetProvider() cons
 {
     return ExtensionSystem::PluginManager::getObject<TextEditor::SnippetProvider>(
         [](TextEditor::SnippetProvider *provider) {
-            return provider->groupId() == Constants::SnippetGroupId;
+            return provider->groupId() == Constants::OCaml::SnippetGroupId;
     });
 }
 

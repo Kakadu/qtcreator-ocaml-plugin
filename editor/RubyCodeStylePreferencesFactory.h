@@ -3,7 +3,7 @@
 
 #include <texteditor/icodestylepreferencesfactory.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class CodeStylePreferencesFactory : public TextEditor::ICodeStylePreferencesFactory
 {

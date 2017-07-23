@@ -4,7 +4,7 @@
 #include <texteditor/indenter.h>
 #include <QStringList>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class Indenter : public TextEditor::Indenter
 {

@@ -17,7 +17,7 @@
 #include <QEvent>
 #include <QKeyEvent>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 // Override just to set fragile = true.
 class AmbigousMethodProposal : public TextEditor::GenericProposal
@@ -53,7 +53,7 @@ public:
         Core::EditorManager::openEditorAt(*m_symbol.file,
                                           m_symbol.line,
                                           m_symbol.column,
-                                          Core::Id(Constants::EditorId),
+                                          Core::Id(Constants::OCaml::EditorId),
                                           flags);
     }
 private:

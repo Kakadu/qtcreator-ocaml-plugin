@@ -4,7 +4,7 @@
 #include <extensionsystem/iplugin.h>
 #include "editor/RubyQuickFixAssistProvider.h"
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class Plugin : public ExtensionSystem::IPlugin
 {

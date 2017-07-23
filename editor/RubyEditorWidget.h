@@ -7,7 +7,7 @@
 #include <texteditor/texteditor.h>
 #include <utils/uncommentselection.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class AmbigousMethodAssistProvider;
 

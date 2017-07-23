@@ -5,7 +5,7 @@
 #include <QRegularExpression>
 #include <QDebug>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 static bool didBlockStart(const QTextBlock &block)
 {

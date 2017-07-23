@@ -7,7 +7,7 @@
 #include <texteditor/codeassist/quickfixassistprocessor.h>
 #include <extensionsystem/pluginmanager.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 QuickFixAssistProvider::QuickFixAssistProvider(QObject *parent)
     : TextEditor::QuickFixAssistProvider(parent)

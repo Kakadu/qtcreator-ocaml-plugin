@@ -3,7 +3,7 @@
 
 #include <QString>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class SourceCodeStream
 {

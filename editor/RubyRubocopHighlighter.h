@@ -20,7 +20,7 @@ QT_FORWARD_DECLARE_CLASS(QProcess)
 
 namespace TextEditor { class TextDocument; }
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class Range {
 public:

@@ -14,7 +14,7 @@
 #include <QTextBlock>
 #include <QTextCursor>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 const int CODEMODEL_UPDATE_INTERVAL = 150;
 const int RUBOCOP_UPDATE_INTERVAL = 300;
@@ -25,7 +25,7 @@ EditorWidget::EditorWidget()
     , m_rubocopUpdatePending(false)
     , m_ambigousMethodAssistProvider(new AmbigousMethodAssistProvider)
 {
-    setLanguageSettingsId(Constants::SettingsId);
+    setLanguageSettingsId(Constants::OCaml::SettingsId);
 
     m_commentDefinition.multiLineStart.clear();
     m_commentDefinition.multiLineEnd.clear();

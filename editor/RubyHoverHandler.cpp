@@ -7,7 +7,7 @@
 #include <texteditor/textdocument.h>
 #include <texteditor/texteditor.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 void HoverHandler::identifyMatch(TextEditor::TextEditorWidget *editorWidget, int pos)
 {

@@ -11,12 +11,12 @@
 
 #include <texteditor/textdocument.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 const int MIN_TIME_BETWEEN_PROJECT_SCANS = 4500;
 
 Project::Project(const Utils::FileName &fileName) :
-    ProjectExplorer::Project(Constants::MimeType, fileName, [this] { scheduleProjectScan(); })
+    ProjectExplorer::Project(Constants::OCaml::MimeType, fileName, [this] { scheduleProjectScan(); })
 {
     m_projectDir = fileName.toFileInfo().dir();
     m_rootNode = new ProjectNode(Utils::FileName::fromString(m_projectDir.dirName()));

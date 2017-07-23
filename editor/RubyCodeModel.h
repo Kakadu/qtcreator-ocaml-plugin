@@ -9,7 +9,7 @@
 
 #include "RubySymbol.h"
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class CodeModel : QObject
 {

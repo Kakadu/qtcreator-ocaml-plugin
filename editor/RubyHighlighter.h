@@ -5,7 +5,7 @@
 #include <texteditor/syntaxhighlighter.h>
 #include "RubyScanner.h"
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class Highlighter :  public TextEditor::SyntaxHighlighter
 {

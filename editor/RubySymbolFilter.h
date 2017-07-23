@@ -11,7 +11,7 @@
 
 namespace Core { class IEditor; }
 
-namespace Ruby {
+namespace OCamlCreator {
 
 typedef std::function<QList<Symbol>(const QString &)> SymbolProvider;
 

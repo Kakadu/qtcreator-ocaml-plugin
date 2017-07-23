@@ -2,7 +2,7 @@
 
 using namespace ProjectExplorer;
 
-namespace Ruby {
+namespace OCamlCreator {
 
 bool ProjectNode::supportsAction(ProjectAction action, Node *) const
 {

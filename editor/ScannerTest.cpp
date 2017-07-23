@@ -4,7 +4,7 @@
 #include <QtTest/QtTest>
 #include <vector>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 Scanner *m_scanner;
 typedef QVector<Token::Kind> Tokens;
@@ -267,4 +267,4 @@ void Plugin::test_keyword_symbols()
     QCOMPARE(tokenize("a= :if"), expectedTokens);
 }
 
-} // namespace Ruby
+} // namespace OCamlCreator

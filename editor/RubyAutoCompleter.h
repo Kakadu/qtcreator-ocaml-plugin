@@ -7,7 +7,7 @@ namespace TextEditor {
 class TabSettings;
 }
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class AutoCompleter : public TextEditor::AutoCompleter
 {

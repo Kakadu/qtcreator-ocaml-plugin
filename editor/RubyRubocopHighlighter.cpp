@@ -13,7 +13,7 @@
 #include <QTextBlock>
 #include <QJsonDocument>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 QDebug operator<< (QDebug& d, const Range &r) {
     d << r.toString();
@@ -325,10 +325,10 @@ int RubocopHighlighter::lineColumnToPos(const int line, const int column) {
     return block.position() + column;
 }
 
-Ruby::Range RubocopHighlighter::lineColumnLengthToRange(int line, int column, int length)
+OCamlCreator::Range RubocopHighlighter::lineColumnLengthToRange(int line, int column, int length)
 {
     int pos = lineColumnToPos(line, column);
-    return Ruby::Range(pos, length);
+    return OCamlCreator::Range(pos, length);
 }
 
 }

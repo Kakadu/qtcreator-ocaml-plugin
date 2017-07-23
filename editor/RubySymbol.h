@@ -4,7 +4,7 @@
 #include <QDateTime>
 #include <QMetaType>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 struct Symbol
 {
@@ -18,6 +18,6 @@ struct Symbol
 
 }
 
-Q_DECLARE_METATYPE(Ruby::Symbol)
+Q_DECLARE_METATYPE(OCamlCreator::Symbol)
 
 #endif

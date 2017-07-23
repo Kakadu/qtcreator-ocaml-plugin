@@ -10,7 +10,7 @@
 
 namespace TextEditor { class TextDocument; }
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class ProjectNode;
 

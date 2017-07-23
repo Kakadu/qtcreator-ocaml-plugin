@@ -3,7 +3,7 @@
 
 #include <texteditor/codeassist/quickfixassistprovider.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class QuickFixAssistProvider : public TextEditor::QuickFixAssistProvider
 {

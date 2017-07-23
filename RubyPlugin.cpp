@@ -22,7 +22,7 @@
 #include <texteditor/texteditor.h>
 #include <texteditor/texteditorsettings.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 Plugin *Plugin::m_instance = 0;
 
@@ -33,9 +33,9 @@ Plugin::Plugin()
 
 Plugin::~Plugin()
 {
-    TextEditor::TextEditorSettings::unregisterCodeStyle(Constants::SettingsId);
-    TextEditor::TextEditorSettings::unregisterCodeStylePool(Constants::SettingsId);
-    TextEditor::TextEditorSettings::unregisterCodeStyleFactory(Constants::SettingsId);
+    TextEditor::TextEditorSettings::unregisterCodeStyle(Constants::OCaml::SettingsId);
+    TextEditor::TextEditorSettings::unregisterCodeStylePool(Constants::OCaml::SettingsId);
+    TextEditor::TextEditorSettings::unregisterCodeStyleFactory(Constants::OCaml::SettingsId);
 
     m_instance = 0;
 }
@@ -59,20 +59,23 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
 
     //ProjectExplorer::ProjectManager::registerProjectType<Project>(Constants::ProjectMimeType);
 
-    addAutoReleasedObject(new SymbolFilter([](const QString &file) {
-        return CodeModel::instance()->methodsIn(file);
-    }, "Ruby Methods in Current Document", '.'));
-    addAutoReleasedObject(new SymbolFilter([](const QString &) {
-        return CodeModel::instance()->allMethods();
-    }, "Ruby methods", 'm'));
-    addAutoReleasedObject(new SymbolFilter([](const QString &) {
-        return CodeModel::instance()->allClasses();
-    }, "Ruby classes", 'c'));
-    ProjectExplorer::ProjectManager::registerProjectType<Project>(Constants::ProjectMimeType);
+    // TODO: reenable this stuff
+//    addAutoReleasedObject(new SymbolFilter([](const QString &file) {
+//        return CodeModel::instance()->methodsIn(file);
+//    }, "Ruby Methods in Current Document", '.'));
+//    addAutoReleasedObject(new SymbolFilter([](const QString &) {
+//        return CodeModel::instance()->allMethods();
+//    }, "Ruby methods", 'm'));
+//    addAutoReleasedObject(new SymbolFilter([](const QString &) {
+//        return CodeModel::instance()->allClasses();
+//    }, "Ruby classes", 'c'));
 
-    Core::IWizardFactory::registerFactoryCreator([]() {
-        return QList<Core::IWizardFactory *>() << new ProjectWizard;
-    });
+    ProjectExplorer::ProjectManager::registerProjectType<Project>(Constants::OCaml::ProjectMimeType);
+
+    // TODO: Implement Wizard for OCaml
+//    Core::IWizardFactory::registerFactoryCreator([]() {
+//        return QList<Core::IWizardFactory *>() << new ProjectWizard;
+//    });
 
     addAutoReleasedObject(new ProjectWizard);
 
@@ -80,7 +83,7 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
 
     m_quickFixProvider = new QuickFixAssistProvider(this);
     registerQuickFixes(this);
-    TextEditor::SnippetProvider::registerGroup(Constants::SnippetGroupId,
+    TextEditor::SnippetProvider::registerGroup(Constants::OCaml::SnippetGroupId,
                                                tr("Ruby", "SnippetProvider"),
                                                &EditorFactory::decorateEditor);
 
@@ -104,7 +107,7 @@ void Plugin::initializeToolsSettings()
 
     // code style pool
     auto pool = new TextEditor::CodeStylePool(factory, this);
-    TextEditor::TextEditorSettings::registerCodeStylePool(Constants::SettingsId, pool);
+    TextEditor::TextEditorSettings::registerCodeStylePool(Constants::OCaml::SettingsId, pool);
 
     // global code style settings
     auto globalCodeStyle = new TextEditor::SimpleCodeStylePreferences(this);
@@ -112,7 +115,7 @@ void Plugin::initializeToolsSettings()
     globalCodeStyle->setDisplayName(tr("Global", "Settings"));
     globalCodeStyle->setId("RubyGlobal");
     pool->addCodeStyle(globalCodeStyle);
-    TextEditor::TextEditorSettings::registerCodeStyle(Constants::SettingsId, globalCodeStyle);
+    TextEditor::TextEditorSettings::registerCodeStyle(Constants::OCaml::SettingsId, globalCodeStyle);
 
     // built-in settings
     // Ruby style
@@ -134,10 +137,10 @@ void Plugin::initializeToolsSettings()
     pool->loadCustomCodeStyles();
 
     // load global settings (after built-in settings are added to the pool)
-    globalCodeStyle->fromSettings(Constants::SettingsId, Core::ICore::settings());
+    globalCodeStyle->fromSettings(Constants::OCaml::SettingsId, Core::ICore::settings());
 
     // mimetypes to be handled
-    TextEditor::TextEditorSettings::registerMimeTypeForLanguageId(Constants::MimeType, Constants::SettingsId);
+    TextEditor::TextEditorSettings::registerMimeTypeForLanguageId(Constants::OCaml::MimeType, Constants::OCaml::SettingsId);
     TextEditor::TextEditorSettings::registerMimeTypeForLanguageId(Constants::OCaml::MimeType, Constants::OCaml::SettingsId);
 }
 

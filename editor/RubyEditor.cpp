@@ -2,11 +2,12 @@
 
 #include "../RubyConstants.h"
 
-namespace Ruby {
+namespace OCamlCreator {
 
 Editor::Editor()
 {
-    addContext(Constants::LangRuby);
+//    addContext(Constants::LangRuby);
+    addContext(Constants::OCaml::LangOCaml);
 }
 
 }

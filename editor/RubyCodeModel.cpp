@@ -7,7 +7,7 @@
 #include <QRegularExpression>
 #include <QDebug>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class CodeModel::Data
 {

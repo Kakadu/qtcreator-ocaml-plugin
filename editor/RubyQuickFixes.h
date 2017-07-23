@@ -8,7 +8,7 @@
 
 #include "RubyScanner.h"
 
-namespace Ruby {
+namespace OCamlCreator {
 
 void registerQuickFixes(ExtensionSystem::IPlugin *plugIn);
 

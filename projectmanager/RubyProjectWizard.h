@@ -3,7 +3,7 @@
 
 #include <coreplugin/basefilewizardfactory.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class ProjectWizard : public Core::BaseFileWizardFactory
 {

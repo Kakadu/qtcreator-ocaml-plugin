@@ -13,7 +13,7 @@
 #include <QTextBlock>
 #include <QDebug>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 enum KindOfCompletion {
     MayBeAIdentifier,
@@ -99,7 +99,7 @@ CompletionAssistProcessor::CompletionAssistProcessor()
     , m_identifierIcon(":/codemodel/images/var.png")
     , m_constantIcon(":/codemodel/images/macro.png")
     , m_symbolIcon(m_identifierIcon)
-    , m_snippetCollector(Constants::SnippetGroupId,
+    , m_snippetCollector(Constants::OCaml::SnippetGroupId,
                          QIcon(":/texteditor/images/snippet.png"))
 {
 

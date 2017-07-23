@@ -3,7 +3,7 @@
 
 #include <texteditor/texteditor.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class EditorWidget;
 

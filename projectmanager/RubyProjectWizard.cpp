@@ -9,7 +9,7 @@
 #include <QDebug>
 #include <QDir>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 ProjectWizard::ProjectWizard()
 {

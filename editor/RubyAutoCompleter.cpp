@@ -4,7 +4,7 @@
 #include <QTextBlock>
 #include <QTextCursor>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 bool AutoCompleter::contextAllowsAutoQuotes(const QTextCursor &cursor, const QString &textToInsert) const
 {

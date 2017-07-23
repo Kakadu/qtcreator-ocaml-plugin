@@ -5,7 +5,7 @@
 
 namespace Utils { class FileName; }
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class ProjectNode : public ProjectExplorer::ProjectNode
 {

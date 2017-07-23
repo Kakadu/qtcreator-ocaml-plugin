@@ -3,7 +3,7 @@
 
 #include <texteditor/basehoverhandler.h>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 class HoverHandler : public TextEditor::BaseHoverHandler
 {

@@ -2,12 +2,12 @@
 #include "../RubyConstants.h"
 #include "../RubyPlugin.h"
 
-namespace Ruby
+namespace OCamlCreator
 {
 
 EditorDocument::EditorDocument()
 {
-    setId(Constants::EditorId);
+    setId(Constants::OCaml::EditorId);
 }
 
 TextEditor::QuickFixAssistProvider *EditorDocument::quickFixAssistProvider() const

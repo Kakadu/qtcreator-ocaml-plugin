@@ -15,15 +15,15 @@
 
 #include <QCoreApplication>
 
-namespace Ruby {
+namespace OCamlCreator {
 
 EditorFactory::EditorFactory()
 {
-    setId(Constants::EditorId);
-    setDisplayName(qApp->translate("OpenWith::Editors", Constants::EditorDisplayName));
-    addMimeType(Constants::MimeType);
+    setId(Constants::OCaml::EditorId);
+    setDisplayName(qApp->translate("OpenWith::Editors", Constants::OCaml::EditorDisplayName));
+//    addMimeType(Constants::MimeType);
     addMimeType(Constants::OCaml::MimeType);
-    addMimeType(Constants::ProjectMimeType);
+    addMimeType(Constants::OCaml::ProjectMimeType);
 
     setDocumentCreator([]() { return new EditorDocument; });
     setIndenterCreator([]() { return new Indenter; });
