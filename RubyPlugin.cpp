@@ -11,8 +11,9 @@
 #include "editor/RubySymbolFilter.h"
 #include "editor/RubyCompletionAssist.h"
 #include "projectmanager/RubyProject.h"
+#ifdef OCAML_WIZARD_SUPPORTED
 #include "projectmanager/RubyProjectWizard.h"
-
+#endif
 #include <coreplugin/icore.h>
 #include <projectexplorer/projectmanager.h>
 #include <texteditor/codestylepool.h>
@@ -77,7 +78,9 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
 //        return QList<Core::IWizardFactory *>() << new ProjectWizard;
 //    });
 
+#ifdef OCAML_WIZARD_SUPPORTED
     addAutoReleasedObject(new ProjectWizard);
+#endif
 
     addAutoReleasedObject(new CompletionAssistProvider);
 
