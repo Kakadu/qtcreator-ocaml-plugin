@@ -31,7 +31,8 @@ EditorFactory::EditorFactory()
     setEditorCreator([]() { return new Editor; });
     setAutoCompleterCreator([]() { return new AutoCompleter; });
     setCompletionAssistProvider(new CompletionAssistProvider);
-    setSyntaxHighlighterCreator([]() { return new Highlighter; });
+    //setSyntaxHighlighterCreator([]() { return new Highlighter; });
+    setUseGenericHighlighter(true);
     setCommentDefinition(Utils::CommentDefinition::HashStyle);
     setParenthesesMatchingEnabled(true);
     setCodeFoldingSupported(true);
