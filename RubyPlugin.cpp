@@ -87,7 +87,7 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
     m_quickFixProvider = new QuickFixAssistProvider(this);
     registerQuickFixes(this);
     TextEditor::SnippetProvider::registerGroup(Constants::OCaml::SnippetGroupId,
-                                               tr("Ruby", "SnippetProvider"),
+                                               tr("OCamlCreator", "SnippetProvider"),
                                                &EditorFactory::decorateEditor);
 
     return true;
@@ -116,15 +116,15 @@ void Plugin::initializeToolsSettings()
     auto globalCodeStyle = new TextEditor::SimpleCodeStylePreferences(this);
     globalCodeStyle->setDelegatingPool(pool);
     globalCodeStyle->setDisplayName(tr("Global", "Settings"));
-    globalCodeStyle->setId("RubyGlobal");
+    globalCodeStyle->setId("OCamlGlobal");
     pool->addCodeStyle(globalCodeStyle);
     TextEditor::TextEditorSettings::registerCodeStyle(Constants::OCaml::SettingsId, globalCodeStyle);
 
     // built-in settings
     // Ruby style
     auto rubyCodeStyle = new TextEditor::SimpleCodeStylePreferences;
-    rubyCodeStyle->setId("ruby");
-    rubyCodeStyle->setDisplayName(tr("RubyCreator"));
+    rubyCodeStyle->setId("ocaml");
+    rubyCodeStyle->setDisplayName(tr("OCamlCreator"));
     rubyCodeStyle->setReadOnly(true);
     TextEditor::TabSettings tabSettings;
     tabSettings.m_tabPolicy = TextEditor::TabSettings::SpacesOnlyTabPolicy;

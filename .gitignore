@@ -7,6 +7,7 @@
 /.qmake.stash
 Makefile*
 Ruby.json
+OCamlCreator.json
 *.user*
 .qmake.stash
 /MerlinFSM.cpp

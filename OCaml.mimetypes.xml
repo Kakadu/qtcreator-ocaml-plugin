@@ -7,9 +7,9 @@
     <glob pattern="*.ocamlproject"/>
   </mime-type>
 
-  <mime-type type="application/x-ocaml">
+  <mime-type type="text/x-ocaml">
     <sub-class-of type="text/plain"/>
-    <comment>Ruby source file</comment>
+    <comment>OCaml source file</comment>
     <glob pattern="*.ml"/>
     <glob pattern="*.mli"/>
     <!--<glob pattern="*.ml"/>

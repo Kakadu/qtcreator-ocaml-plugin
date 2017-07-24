@@ -29,13 +29,6 @@
         <comment>Ruby project file</comment>
         <glob pattern=\'*.rubyproject\'/>
       </mime-type>
-      -->
-      <mime-type type=\'text/x-ocamlcreator-project\'>
-        <sub-class-of type=\'text/plain\'/>
-        <comment>OCaml project file</comment>
-        <glob pattern=\'*.ocamlproject\'/>
-      </mime-type>
-<!--
       <mime-type type=\'application/x-ruby\'>
         <sub-class-of type=\'text/plain\'/>
         <comment>Ruby source file</comment>
@@ -49,12 +42,14 @@
         </magic>
       </mime-type>
       -->
-      <mime-type type=\'application/x-ocaml\'>
+
+      <mime-type type=\'text/x-ocaml\'>
         <sub-class-of type=\'text/plain\'/>
         <comment>Ruby source file</comment>
         <glob pattern=\'*.ml\'/>
         <glob pattern=\'*.mli\'/>
       </mime-type>
+
     </mime-info>
     \"
 }
