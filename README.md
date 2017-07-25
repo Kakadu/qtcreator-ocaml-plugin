@@ -1,20 +1,13 @@
-# RubyCreator
+# OCamlCreator
 
-Plugin to add Ruby language support to QtCreator IDE.
+Plugin to add OCaml language support to QtCreator IDE.
 
-More info can be found at: http://hugopl.github.io/RubyCreator/
+Based on the source of RubyCreator: http://hugopl.github.io/RubyCreator/
 
-## How to install
-
-Packages are available only for Arch Linux in AUR, for anything different you will need to clone the repository and compile it yourself.
 
 # Note About branches
 
 `master` branch should work with the `master` branch of QtCreator, it may not compile because QtCreator may have changed some API and we had no time to adapt to the changes.
-
-Current development is done on branch qt-3.x, where x is the current QtCreator version on Arch Linux, `master` branch is updated mostly upon contributions.
-
-Old versions of this plugin that works with old versions of QtCreator can be found in tags v3.1, v3.3, etc, these versions will not get any updates, if you like to contribute, do it in the development branch.
 
 ## How to compile
 
