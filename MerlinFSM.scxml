@@ -3,21 +3,28 @@
     <qt:editorinfo initialGeometry="21.35;-2.04;-20;-20;40;40"/>
     <datamodel/>
     <state id="On">
-        <qt:editorinfo geometry="356.51;89.94;-247.72;-146.06;840.72;650.06" scenegeometry="356.51;89.94;108.79;-56.12;840.72;650.06"/>
+        <qt:editorinfo geometry="359.72;89.94;-247.72;-146.06;1063.64;651.06" scenegeometry="359.72;89.94;112;-56.12;1063.64;651.06"/>
         <state id="Default">
-            <qt:editorinfo geometry="208.30;158.68;-60;-50;164;100" scenegeometry="564.81;248.62;504.81;198.62;164;100"/>
+            <qt:editorinfo geometry="178.40;166.15;-60;-50;164;100" scenegeometry="538.12;256.09;478.12;206.09;164;100"/>
             <transition type="external" event="sendCode" target="codeSent">
-                <qt:editorinfo endTargetFactors="94.37;68.77" startTargetFactors="7.78;75"/>
+                <qt:editorinfo startTargetFactors="7.78;75" endTargetFactors="94.37;68.77"/>
             </transition>
+            <transition type="external" event="goToDefAsked" target="GoToDefSent"/>
         </state>
         <state id="codeSent">
-            <qt:editorinfo geometry="-181.95;141.28;-22.23;-24.50;177.47;111" scenegeometry="176.70;231.22;154.47;206.72;177.47;111"/>
+            <qt:editorinfo geometry="-181.95;141.28;-22.23;-13.50;177.47;100" scenegeometry="177.77;231.22;155.54;217.72;177.47;100"/>
             <transition type="external" event="diagnosticsReceived" target="Default">
-                <qt:editorinfo endTargetFactors="9.44;50.87" startTargetFactors="94.73;40.94" movePoint="0;2.13"/>
+                <qt:editorinfo startTargetFactors="94.73;40.94" movePoint="0;2.13" endTargetFactors="9.44;50.87"/>
             </transition>
         </state>
         <onentry>
             <send event="entry_to_on"/>
         </onentry>
+        <state id="GoToDefSent">
+            <qt:editorinfo geometry="523.40;162.05;-60;-50;138;100" scenegeometry="883.12;251.99;823.12;201.99;138;100"/>
+            <transition type="external" event="definitionsReceived" target="Default">
+                <qt:editorinfo startTargetFactors="6.49;68.75" movePoint="14.95;8.54" endTargetFactors="91.11;68.16"/>
+            </transition>
+        </state>
     </state>
 </scxml>

@@ -10,9 +10,9 @@
 
 #include <texteditor/textdocument.h>
 
-#include <QDebug>
-#include <QTextBlock>
-#include <QTextCursor>
+#include <QtCore/QDebug>
+#include <QtGui/QTextBlock>
+#include <QtGui/QTextCursor>
 
 namespace OCamlCreator {
 
@@ -55,51 +55,22 @@ EditorWidget::~EditorWidget()
 
 TextEditor::TextEditorWidget::Link EditorWidget::findLinkAt(const QTextCursor &cursor, bool, bool inNextSplit)
 {
+    Q_UNUSED(inNextSplit);
+    /* Hack here. QtCreator API doesn't support asynchornous finding links (yet).
+     * See TextEditorWidget::openLinkUnderCursor implementation
+     * So, we should return empty link here but schedule request to merlin.
+     * The problem will be that all calls to findLinkAt will cause triggering of
+     * go-to-definition request.
+     */
     QString text = cursor.block().text();
     if (text.isEmpty())
         return Link();
 
-    QString word;
-    int cursorPos = cursor.positionInBlock();
-    int pos = 0;
-    for (;;) {
-        QRegularExpressionMatch match = m_wordRegex.match(text, pos + word.length());
-        if (!match.hasMatch())
-            return Link();
-
-        word = match.captured();
-        pos = match.capturedStart();
-        if (pos <= cursorPos && (pos + word.length()) >= cursorPos)
-            break;
-    }
-
-    if (word.isEmpty() || word[0].isDigit())
-        return Link();
-
-    CodeModel* codeModel = CodeModel::instance();
-
-    const QList<Symbol> symbols = word[0].isUpper() ? codeModel->allClassesAndConstantsNamed(word) : codeModel->allMethodsNamed(word);
-    if (symbols.empty())
-        return Link();
-
-    Link link;
-    link.linkTextStart = cursor.position() + (pos - cursorPos);
-    link.linkTextEnd = link.linkTextStart + word.length();
-
-    if (symbols.count() > 1) {
-        m_ambigousMethodAssistProvider->setSymbols(symbols);
-        m_ambigousMethodAssistProvider->setCursorPosition(cursor.position());
-        m_ambigousMethodAssistProvider->setInNextSplit(inNextSplit);
-
-        invokeAssist(TextEditor::FollowSymbol, m_ambigousMethodAssistProvider);
-        return link;
-    }
-
-    link.targetLine = symbols.last().line;
-    link.targetColumn = symbols.last().column;
-    link.targetFileName = *symbols.last().file;
-
-    return link;
+    const QTextBlock block = cursor.block();
+    const int line = block.blockNumber() + 1;
+    const int column = cursor.position() - block.position();
+    RubocopHighlighter::instance()->performGoToDefinition(textDocument(), line, column);
+    return Link();
 }
 
 void EditorWidget::unCommentSelection()

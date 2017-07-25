@@ -77,8 +77,12 @@ private:
     bool m_isValid;
 };
 
+class RubocopHighlighterPrivate;
+
 class RubocopHighlighter : public QObject {
     Q_OBJECT
+    Q_DECLARE_PRIVATE(RubocopHighlighter);
+    RubocopHighlighterPrivate *d_ptr;
 public:
     RubocopHighlighter();
     ~RubocopHighlighter();
@@ -87,9 +91,10 @@ public:
 
     bool run(TextEditor::TextDocument *document, const QString &fileNameTip);
     QString diagnosticAt(const Utils::FileName &file, int pos);
+    void performGoToDefinition(TextEditor::TextDocument *document, const int line, const int column);
 private:
     Diagnostics processMerlinErrors(const QJsonValue& v);
-    void makeMerlinAnalyzeBuffer(const QByteArray&);
+    void performErrorsCheck(const QByteArray&);
     inline void sendFSMevent(const QString&);
     void makeMerlinAskDiagnostics();
     bool m_rubocopFound;
@@ -107,6 +112,7 @@ private:
 
     QElapsedTimer m_timer;
     void parseDiagnosticsJson(const QJsonValue& resp);
+    void parseDefinitionsJson(const QJsonValue& resp);
 
     void initRubocopProcess(const QStringList &args);
     void finishRuboCopHighlight();
@@ -115,6 +121,8 @@ private:
     Range lineColumnLengthToRange(int line, int column, int length);
     int   lineColumnToPos(const int line, const int column);
     bool isReturnTrue(const QJsonArray& arr);
+
+    void generalMsg(const QString& msg) const;
 };
 }
 

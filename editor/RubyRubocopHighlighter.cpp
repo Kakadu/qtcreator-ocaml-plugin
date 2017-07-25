@@ -3,9 +3,11 @@
 #include <texteditor/textdocument.h>
 #include <texteditor/semantichighlighter.h>
 #include <coreplugin/messagemanager.h>
+#include <coreplugin/editormanager/editormanager.h>
 #include <projectexplorer/taskhub.h>
 
 #include <utils/asconst.h>
+#include <utils/qtcassert.h>
 #include "RubyConstants.h"
 
 #include <QDebug>
@@ -32,6 +34,12 @@ public:
     }
 };
 
+class RubocopHighlighterPrivate {
+    RubocopHighlighter *q_ptr;
+public:
+    RubocopHighlighterPrivate(RubocopHighlighter *q) : q_ptr(q) { }
+};
+
 RubocopHighlighter::RubocopHighlighter()
     : m_rubocopFound(true)
     , m_busy(false)
@@ -39,6 +47,7 @@ RubocopHighlighter::RubocopHighlighter()
     , m_startRevision(0)
     , m_document(nullptr)
     , m_chart()
+    , d_ptr(new RubocopHighlighterPrivate(this))
 {
     QTextCharFormat format;
     format.setUnderlineColor(Qt::darkYellow);
@@ -117,7 +126,7 @@ bool RubocopHighlighter::run(TextEditor::TextDocument *document, const QString &
     m_rubocop->write(query);
     qDebug () << "query" << obj;*/
 
-    makeMerlinAnalyzeBuffer( document->contents() );
+    performErrorsCheck( document->contents() );
     return true;
 }
 
@@ -130,20 +139,30 @@ QString RubocopHighlighter::diagnosticAt(const Utils::FileName &file, int pos)
     return it->messages[Range(pos + 1, 0)];
 }
 
-void RubocopHighlighter::makeMerlinAnalyzeBuffer(const QByteArray &file)
+void RubocopHighlighter::performGoToDefinition(TextEditor::TextDocument *document, const int line, const int column)
 {
-//    QJsonArray obj {"tell","start","end", QString::fromLocal8Bit(file)};
-//    QJsonDocument doc(obj);
-//    QByteArray query(doc.toJson(QJsonDocument::Compact));
-//    m_rubocop->write(query);
-    //    sendFSMevent("sendCode");
+    sendFSMevent("goToDefAsked");
+    const QString& pos = QString("%1:%2").arg(line).arg(column);
+    auto path = Core::EditorManager::instance()->currentDocument()->filePath().toString();
+    QStringList args { "locate", "-position", pos, "-filename", path };
+    qDebug() << "locating at" << pos;
+    initRubocopProcess(args);
+    const QByteArray& file = document->contents();
+    m_rubocop->write(file.data(), file.length());
+    m_rubocop->closeWriteChannel();
+}
+
+void RubocopHighlighter::performErrorsCheck(const QByteArray &file)
+{
+    if (!Core::EditorManager::instance()->currentDocument())
+        return;
 
     sendFSMevent("sendCode");
-    QStringList args {"errors", "-filename", "test.ml"};
+    auto path = Core::EditorManager::instance()->currentDocument()->filePath().toString();
+    QStringList args {"errors", "-filename", path };
     initRubocopProcess(args);
     m_rubocop->write(file.data(), file.length());
     m_rubocop->closeWriteChannel();
-//    qDebug () << args;
 }
 
 inline void RubocopHighlighter::sendFSMevent(const QString &s)
@@ -194,11 +213,12 @@ void RubocopHighlighter::initRubocopProcess(const QStringList& args)
     // http://stackoverflow.com/questions/19409940/how-to-get-output-system-command-in-qt
     auto new_args = args;
     new_args.push_front("single");
-//    qDebug() << "starting";
     static const QString opamPath = "/home/kakadu/.opam/4.04.0+fp+flambda/bin/";
+    m_rubocop->processEnvironment().insert("MERLIN_LOG"," /tmp/merlin.qtcreator.log");
     m_rubocop->start(opamPath + "ocamlmerlin", new_args);
+    qDebug() << QString("starting (PID=%1)").arg(m_rubocop->pid()) << "with args" << qPrintable(m_rubocop->arguments().join(' '));
 }
-
+#if 0
 bool RubocopHighlighter::isReturnTrue(const QJsonArray& arr) {
     return (arr.count() == 2) &&
            (arr.at(0) == "return") &&
@@ -210,10 +230,34 @@ bool isReturnFalse(const QJsonArray& arr) {
            (arr.at(0) == "return") &&
            (arr.at(1) == false);
 }
-///
-/// \brief RubocopHighlighter::parseDiagnosticsJson
-/// \param resp is an array of diagnostics represented in JSON
-///
+#endif
+
+
+void RubocopHighlighter::parseDefinitionsJson(const QJsonValue& resp) {
+    qDebug() << resp;
+    using namespace ::Utils;
+    // {"file":"test.ml","pos":{"col":4,"line":35}})
+    QTC_CHECK(resp.isObject());
+    auto root = resp.toObject();
+    QTC_CHECK(root.value("pos") != "");
+    auto posJson = root.value("pos").toObject();
+    QTC_CHECK(posJson.value("col") != "");
+    auto col = posJson.value("col").toInt();
+    QTC_CHECK(posJson.value("line") != "");
+    auto line = posJson.value("line").toInt();
+
+    if (root.value("file").isUndefined()) {
+        qWarning() << "got answer with underfined path";
+        generalMsg( QString("got answer with undefined path %1:%2").arg(__FILE__).arg(__LINE__) );
+    } else  {
+        auto path = root.value("file").toString();
+        QTC_CHECK(!path.isEmpty());
+        //qDebug() << "relocating editor to " << path << line << ":" << col;
+        Core::EditorManager::instance()->openEditorAt(path, line, col);
+    }
+
+}
+
 void RubocopHighlighter::parseDiagnosticsJson(const QJsonValue& resp) {
     Diagnostics diags;
     Offenses offenses;
@@ -301,6 +345,9 @@ void RubocopHighlighter::finishRuboCopHighlight()
             sendFSMevent("diagnosticsReceived");
             qDebug() << "json is " << root;
             parseDiagnosticsJson(root.value("value"));
+        } else if (m_chart.isActive("GoToDefSent")) {
+            sendFSMevent("definitionsReceived");
+            parseDefinitionsJson(root.value("value"));
         } else {
             sendFSMevent("errorHappend");
             qWarning() << "Got a result but the state is not detectable";
@@ -311,6 +358,8 @@ void RubocopHighlighter::finishRuboCopHighlight()
     } else if (clas == "failure") {
         qWarning() << "merlin failure";
         qWarning() << root;
+        generalMsg("Merlin failure: " + root.value("value").toString() );
+
     } else if (clas == "error") {
         qWarning() << "merlin error";
         qWarning() << root;
@@ -392,6 +441,10 @@ Offenses RubocopHighlighter::processRubocopOutput()
 int RubocopHighlighter::lineColumnToPos(const int line, const int column) {
     QTextBlock block = m_document->document()->findBlockByLineNumber(line - 1);
     return block.position() + column;
+}
+
+void RubocopHighlighter::generalMsg(const QString &msg) const {
+    Core::MessageManager::instance()->write(msg);
 }
 
 OCamlCreator::Range RubocopHighlighter::lineColumnLengthToRange(int line, int column, int length)

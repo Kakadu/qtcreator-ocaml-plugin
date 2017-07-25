@@ -1,8 +1,8 @@
 #ifndef RubyEditorWidget_h
 #define RubyEditorWidget_h
 
-#include <QRegularExpression>
-#include <QTimer>
+#include <QtCore/QRegularExpression>
+#include <QtCore/QTimer>
 
 #include <texteditor/texteditor.h>
 #include <utils/uncommentselection.h>
