@@ -11,11 +11,15 @@
 #include "editor/RubySymbolFilter.h"
 #include "editor/RubyCompletionAssist.h"
 #include "projectmanager/RubyProject.h"
+
 #ifdef OCAML_WIZARD_SUPPORTED
 #include "projectmanager/RubyProjectWizard.h"
 #endif
+
 #include <coreplugin/icore.h>
 #include <projectexplorer/projectmanager.h>
+#include <projectexplorer/taskhub.h>
+
 #include <texteditor/codestylepool.h>
 #include <texteditor/simplecodestylepreferences.h>
 #include <texteditor/snippets/snippetprovider.h>
@@ -95,6 +99,7 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
 
 void Plugin::extensionsInitialized()
 {
+    ProjectExplorer::TaskHub::addCategory(Constants::TASK_CATEGORY_MERLIN_COMPILE, tr("Merlin"));
 }
 
 QuickFixAssistProvider *Plugin::quickFixProvider()
@@ -143,7 +148,6 @@ void Plugin::initializeToolsSettings()
     globalCodeStyle->fromSettings(Constants::OCaml::SettingsId, Core::ICore::settings());
 
     // mimetypes to be handled
-    TextEditor::TextEditorSettings::registerMimeTypeForLanguageId(Constants::OCaml::MimeType, Constants::OCaml::SettingsId);
     TextEditor::TextEditorSettings::registerMimeTypeForLanguageId(Constants::OCaml::MimeType, Constants::OCaml::SettingsId);
 }
 

@@ -2,8 +2,11 @@
 
 #include <texteditor/textdocument.h>
 #include <texteditor/semantichighlighter.h>
+#include <coreplugin/messagemanager.h>
+#include <projectexplorer/taskhub.h>
 
 #include <utils/asconst.h>
+#include "RubyConstants.h"
 
 #include <QDebug>
 #include <QProcess>
@@ -47,18 +50,16 @@ RubocopHighlighter::RubocopHighlighter()
     m_extraFormats[2].setUnderlineColor(Qt::red);
 
     QVariantMap m;
-    //m.insert("wrapper", true);
     m.insert("On",      true);
     m.insert("Default", true);
     m.insert("CodeSent", false);
-    m.insert("DiagnosticsAsked", false);
-    //m.insert("GoToDefault", false);
     m_chart.setInitialValues(m);
 
     static QVector<QString> connectedStates;
-    connectedStates << "Default" << "CodeSent" << "DiagnosticsAsked"
-      << "GoToDefault";
-
+    connectedStates << "Default" << "CodeSent"
+//                    << "DiagnosticsAsked" << "GoToDefault"
+                       ;
+#if 0
     foreach (const QString& s, connectedStates) {
         m_chart.connectToState(s, [s](bool b) {
             qDebug() << qPrintable(QString("MerlinFSM in state %1 (%2)")
@@ -73,12 +74,11 @@ RubocopHighlighter::RubocopHighlighter()
     connect(&m_chart, &MerlinFSM::log, [](const QString&a, const QString&b) {
        qDebug() << "MerlinFSM::log: " << a << " " << b;
     });
-
+#endif
     m_chart.init();
     m_chart.start();
     Q_ASSERT(m_chart.isInitialized());
     qDebug() << m_chart.activeStateNames(false);
-    initRubocopProcess();
 }
 
 RubocopHighlighter::~RubocopHighlighter()
@@ -88,7 +88,7 @@ RubocopHighlighter::~RubocopHighlighter()
     delete m_rubocop;
 }
 
-RubocopHighlighter *RubocopHighlighter::instance()//pattern singleton
+RubocopHighlighter *RubocopHighlighter::instance()
 {
     static RubocopHighlighter rubocop;
     return &rubocop;
@@ -97,12 +97,12 @@ RubocopHighlighter *RubocopHighlighter::instance()//pattern singleton
 // return false if we are busy, true if everything is ok (or rubocop wasn't found)
 bool RubocopHighlighter::run(TextEditor::TextDocument *document, const QString &fileNameTip)
 {
-    if (m_busy || m_rubocop->state() == QProcess::Starting)
-        return false;
-    if (!m_rubocopFound)
-        return true;
+//    if (m_busy || m_rubocop->state() == QProcess::Starting)
+//        return false;
+//    if (!m_rubocopFound)
+//        return true;
 
-    m_busy = true;
+//    m_busy = true;
     m_startRevision = document->document()->revision();
 
     m_timer.start();
@@ -132,12 +132,18 @@ QString RubocopHighlighter::diagnosticAt(const Utils::FileName &file, int pos)
 
 void RubocopHighlighter::makeMerlinAnalyzeBuffer(const QByteArray &file)
 {
-    QJsonArray obj {"tell","start","end", QString::fromLocal8Bit(file)};
-    QJsonDocument doc(obj);
-    QByteArray query(doc.toJson(QJsonDocument::Compact));
+//    QJsonArray obj {"tell","start","end", QString::fromLocal8Bit(file)};
+//    QJsonDocument doc(obj);
+//    QByteArray query(doc.toJson(QJsonDocument::Compact));
+//    m_rubocop->write(query);
+    //    sendFSMevent("sendCode");
+
     sendFSMevent("sendCode");
-    m_rubocop->write(query);
-    qDebug () << "query" << obj;
+    QStringList args {"errors", "-filename", "test.ml"};
+    initRubocopProcess(args);
+    m_rubocop->write(file.data(), file.length());
+    m_rubocop->closeWriteChannel();
+//    qDebug () << args;
 }
 
 inline void RubocopHighlighter::sendFSMevent(const QString &s)
@@ -150,21 +156,14 @@ inline void RubocopHighlighter::sendFSMevent(const QString &s)
 void RubocopHighlighter::makeMerlinAskDiagnostics()
 {
     const QByteArray query = "[\"errors\"]";
-    sendFSMevent("askDiagnostics");
+//    sendFSMevent("askDiagnostics");
     m_rubocop->write(query);
     qDebug () << "query" << query;
 }
 
-void RubocopHighlighter::initRubocopProcess()
+void RubocopHighlighter::initRubocopProcess(const QStringList& args)
 {
-    qDebug() << "initProcess";
-   /* if (m_rubocopScript.open()) {
-        QFile script(QStringLiteral("/home/andrew/.opam/4.02.3/bin/ocamlmerlin"));
-
-        script.open(QFile::ReadOnly);
-        m_rubocopScript.write(script.readAll());
-        m_rubocopScript.close();
-    }*/
+    qDebug() << "init process for a single message";
 
     m_rubocop = new QProcess;
     void (QProcess::*signal)(int) = &QProcess::finished;
@@ -175,11 +174,17 @@ void RubocopHighlighter::initRubocopProcess()
             m_rubocopFound = false;
         }
     });
-
+    QObject::connect(m_rubocop, &QProcess::started, [&]() {
+        qDebug() << "started";
+    });
+    QObject::connect(m_rubocop, &QProcess::errorOccurred, [&](QProcess::ProcessError e) {
+        qDebug() << "error "   << e;
+    });
 
     QObject::connect(m_rubocop, &QProcess::readyReadStandardOutput, [&]() {
+//        qDebug() << "on readyReadStandardOutput";
         m_outputBuffer.append(QString::fromUtf8(m_rubocop->readAllStandardOutput()));
-        qDebug() << qPrintable(m_outputBuffer) << endl;
+//        qDebug() << qPrintable(m_outputBuffer) << endl;
 
         if (m_outputBuffer.endsWith(QLatin1String("\n")))
             finishRuboCopHighlight();
@@ -187,8 +192,11 @@ void RubocopHighlighter::initRubocopProcess()
 
     //TODO: detect opam and remove hardcoded path
     // http://stackoverflow.com/questions/19409940/how-to-get-output-system-command-in-qt
-    qDebug() << "starting";
-    m_rubocop->start(QStringLiteral("/home/kakadu/.opam/4.04.0+fp+flambda/bin/ocamlmerlin"));
+    auto new_args = args;
+    new_args.push_front("single");
+//    qDebug() << "starting";
+    static const QString opamPath = "/home/kakadu/.opam/4.04.0+fp+flambda/bin/";
+    m_rubocop->start(opamPath + "ocamlmerlin", new_args);
 }
 
 bool RubocopHighlighter::isReturnTrue(const QJsonArray& arr) {
@@ -202,7 +210,66 @@ bool isReturnFalse(const QJsonArray& arr) {
            (arr.at(0) == "return") &&
            (arr.at(1) == false);
 }
+///
+/// \brief RubocopHighlighter::parseDiagnosticsJson
+/// \param resp is an array of diagnostics represented in JSON
+///
+void RubocopHighlighter::parseDiagnosticsJson(const QJsonValue& resp) {
+    Diagnostics diags;
+    Offenses offenses;
 
+    if (!resp.isArray()) {
+        qWarning() << "not an array " << resp;
+        goto BAD_JSON;
+    }
+
+    diags = m_diagnostics[m_document->filePath()] = Diagnostics();
+    diags.setValid();
+
+    foreach (const QJsonValue& v, resp.toArray()) {
+        const QJsonObject& start = v.toObject().take("start").toObject();
+        const QJsonObject& end = v.toObject().take("end").toObject();
+        const int line1 = start.value("line").toInt();
+        const int col1 = start.value("col").toInt();
+        const int p1 = lineColumnToPos(line1, col1);
+        const int p2 = lineColumnToPos(end.value("line").toInt(),
+                                       end.value("col").toInt() );
+        Range r(start.value("line").toInt(),
+                start.value("col").toInt() + 1,
+                end.value("line").toInt(),
+                end.value("col").toInt() + 1,
+                p1, p2-p1);
+
+        const QString& msg = v.toObject().value("message").toString();
+        diags.messages[r] = msg;
+
+        // TODO: response contains filed valid: bool
+        // but it seems not important
+    }
+    qDebug() << "got " << diags.messages.count() << "diagnostics";
+    // now we convert parsed diagnostics to editor's highlighting regions
+    // and add tasks to the TaskHub (Issues bottom pane)
+    ProjectExplorer::TaskHub::clearTasks(Constants::TASK_CATEGORY_MERLIN_COMPILE);
+    for (const Range& r : diags.messages.keys()) {
+        offenses << TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, 2);
+        using namespace ProjectExplorer;
+        TaskHub::instance()->addTask(Task::Error, diags.messages.value(r, "?"),
+                                     Constants::TASK_CATEGORY_MERLIN_COMPILE);
+    }
+    {
+    RubocopFuture rubocopFuture(offenses);
+    TextEditor::SemanticHighlighter::clearExtraAdditionalFormatsUntilEnd(m_document->syntaxHighlighter(),
+                                                                         rubocopFuture.future());
+    TextEditor::SemanticHighlighter::incrementalApplyExtraAdditionalFormats(m_document->syntaxHighlighter(),
+                                                                            rubocopFuture.future(), 0,
+                                                                            offenses.count(), m_extraFormats);
+    Core::MessageManager::instance()->write(QString("Got %1 offenses").arg(offenses.length()));
+    }
+    return;
+BAD_JSON:
+    qWarning() << Q_FUNC_INFO;
+    qWarning() << "can't parse JSON";
+}
 
 void RubocopHighlighter::finishRuboCopHighlight()
 {
@@ -210,53 +277,52 @@ void RubocopHighlighter::finishRuboCopHighlight()
         m_busy = false;
         return;
     }
-    Diagnostics diags;
+    // https://github.com/ocaml/merlin/blob/master/doc/dev/PROTOCOL.md
+    // for protocol details
 
-    //qDebug() << "m_outputBuffer.toUtf8() = " << m_outputBuffer.toUtf8();
     QJsonDocument jsonResponse = QJsonDocument::fromJson(m_outputBuffer.toUtf8());
     m_outputBuffer.clear();
-    const QJsonArray& arr = jsonResponse.array();
 
-    //qDebug() << "arr = " << arr;
-    if (isReturnTrue(arr)) {
-        if (m_chart.activeStateNames() == QStringList("CodeSent"))
-            makeMerlinAskDiagnostics();
-    } else if (isReturnFalse(arr)) {
-        sendFSMevent("errorHappend");
-    } else if ( (diags = processMerlinErrors(arr.at(1)))) {
-//        qDebug() << diags.messages;
-//        qDebug() << "count = " << diags.messages.count();
-        Offenses offenses;
+    if (jsonResponse.isEmpty())
+        return;
 
-        for (const Range& r : diags.messages.keys()) {
-            offenses << TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, 2);
-            //offenses << TextEditor::HighlightingResult(1,1,40, 1);
-            //break;
-        }
-        RubocopFuture rubocopFuture(offenses);
-        TextEditor::SemanticHighlighter::clearExtraAdditionalFormatsUntilEnd(m_document->syntaxHighlighter(),
-                                                                             rubocopFuture.future());
-        TextEditor::SemanticHighlighter::incrementalApplyExtraAdditionalFormats(m_document->syntaxHighlighter(),
-                                                                                rubocopFuture.future(), 0,
-                                                                                offenses.count(), m_extraFormats);
-        //result << TextEditor::HighlightingResult(lineN, column, length, kind);
-        sendFSMevent("okay");
-    } else {
-        sendFSMevent("errorHappend");
+    if (!jsonResponse.isObject()) {
+        qCritical() << "JSON response is not an object";
+        qCritical() << jsonResponse;
+        return;
     }
+    auto root = jsonResponse.object();
+    Q_ASSERT(root.value("class") != "");
 
-
+    QString clas = root.value("class").toString();
+    if (clas == "return") {
+        if (m_chart.isActive("codeSent")) {
+            qDebug() << "Got a result in a state codeSent";
+            sendFSMevent("diagnosticsReceived");
+            qDebug() << "json is " << root;
+            parseDiagnosticsJson(root.value("value"));
+        } else {
+            sendFSMevent("errorHappend");
+            qWarning() << "Got a result but the state is not detectable";
+        }
+    } else if (clas == "exception") {
+        qWarning() << "merlin exception";
+        qWarning() << root;
+    } else if (clas == "failure") {
+        qWarning() << "merlin failure";
+        qWarning() << root;
+    } else if (clas == "error") {
+        qWarning() << "merlin error";
+        qWarning() << root;
+    } else {
+        qWarning() << "Unknown merlin response class";
+    }
     m_busy = false;
-
-    qDebug() << "rubocop in" << m_timer.elapsed() << "ms,"
-//             << offenses.count() << "offenses found."
-                ;
 }
 
 Diagnostics RubocopHighlighter::processMerlinErrors(const QJsonValue& v) {
-    //qDebug() << Q_FUNC_INFO;
     if (!v.isArray()) {
-        qDebug() << "not an array";
+        qDebug() << "not an array" << v;
         return Diagnostics();
     }
     Diagnostics &d = m_diagnostics[m_document->filePath()] = Diagnostics();
@@ -279,6 +345,9 @@ Diagnostics RubocopHighlighter::processMerlinErrors(const QJsonValue& v) {
 
         const QString& msg = v.toObject().value("message").toString();
         d.messages[r] = msg;
+
+        // TODO: response contains filed valid: bool
+        // Undestand why it is important
     }
 
     return d;

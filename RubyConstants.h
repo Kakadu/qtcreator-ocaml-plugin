@@ -4,6 +4,8 @@
 namespace OCamlCreator {
 namespace Constants {
 
+const char TASK_CATEGORY_MERLIN_COMPILE[] = "Task.Category.Merlin.Compile";
+
 namespace OCaml {
 const char EditorId[] = "OCaml.OCamlEditor";
 const char ProjectId[] = "OCaml.Project";

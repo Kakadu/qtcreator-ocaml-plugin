@@ -106,8 +106,9 @@ private:
     QHash<Utils::FileName, Diagnostics> m_diagnostics;
 
     QElapsedTimer m_timer;
+    void parseDiagnosticsJson(const QJsonValue& resp);
 
-    void initRubocopProcess();
+    void initRubocopProcess(const QStringList &args);
     void finishRuboCopHighlight();
     Offenses processRubocopOutput();
 
