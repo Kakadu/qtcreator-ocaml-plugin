@@ -57,10 +57,11 @@ public:
     bool run(TextEditor::TextDocument *document, const QString &fileNameTip);
     QString diagnosticAt(const Utils::FileName &file, int pos);
 private:
+    void makeMerlinAnalyzeBuffer(const QByteArray&);
     bool m_rubocopFound;
     bool m_busy;
-    QProcess *m_rubocop;
-    QTemporaryFile m_rubocopScript;
+    QProcess *m_rubocop;// m_rubocop - указатель на открываемый процесс
+    QTemporaryFile m_rubocopScript;//временный файл
     QString m_outputBuffer;
 
     int m_startRevision;

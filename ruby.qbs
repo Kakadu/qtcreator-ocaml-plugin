@@ -1,7 +1,7 @@
 import qbs 1.0
 import QtcPlugin
 
-QtcPlugin {
+QtcPlugin    {
     name: "Ruby"
 
     Depends { name: "Qt.widgets" }

@@ -11,6 +11,7 @@
 #include <QtConcurrent>
 #include <QMessageBox>
 #include <QTextBlock>
+#include <QJsonDocument>
 
 namespace Ruby {
 
@@ -49,7 +50,7 @@ RubocopHighlighter::~RubocopHighlighter()
     delete m_rubocop;
 }
 
-RubocopHighlighter *RubocopHighlighter::instance()
+RubocopHighlighter *RubocopHighlighter::instance()//pattern singleton
 {
     static RubocopHighlighter rubocop;
     return &rubocop;
@@ -71,10 +72,12 @@ bool RubocopHighlighter::run(TextEditor::TextDocument *document, const QString &
 
     const QString filePath = document->filePath().isEmpty() ? fileNameTip
                                                             : document->filePath().toString();
-    m_rubocop->write(filePath.toUtf8());
-    m_rubocop->write("\n");
-    QByteArray data = document->plainText().toUtf8();
-    m_rubocop->write(data.constData(), data.length() + 1);
+    /*QJsonArray obj {"tell","start","end","let f x = x let () = ()"};
+    QJsonDocument doc(obj);
+    QByteArray query(doc.toJson(QJsonDocument::Compact));
+    m_rubocop->write(query);
+    qDebug () << "query" << obj;*/
+     makeMerlinAnalyzeBuffer("let f x = x let () = ()");
     return true;
 }
 
@@ -87,14 +90,25 @@ QString RubocopHighlighter::diagnosticAt(const Utils::FileName &file, int pos)
     return it->messages[Range(pos + 1, 0)];
 }
 
+void RubocopHighlighter::makeMerlinAnalyzeBuffer(const QByteArray &file)
+{
+    QJsonArray obj {"tell","start","end", QString::fromLocal8Bit(file)};
+    QJsonDocument doc(obj);
+    QByteArray query(doc.toJson(QJsonDocument::Compact));
+    m_rubocop->write(query);
+    qDebug () << "query" << obj;
+}
+
 void RubocopHighlighter::initRubocopProcess()
 {
-    if (m_rubocopScript.open()) {
-        QFile script(":/rubysupport/rubocop.rb");
+    qDebug() << "initProcess";
+   /* if (m_rubocopScript.open()) {
+        QFile script(QStringLiteral("/home/andrew/.opam/4.02.3/bin/ocamlmerlin"));
+
         script.open(QFile::ReadOnly);
         m_rubocopScript.write(script.readAll());
         m_rubocopScript.close();
-    }
+    }*/
 
     m_rubocop = new QProcess;
     void (QProcess::*signal)(int) = &QProcess::finished;
@@ -105,13 +119,19 @@ void RubocopHighlighter::initRubocopProcess()
         }
     });
 
+
     QObject::connect(m_rubocop, &QProcess::readyReadStandardOutput, [&]() {
         m_outputBuffer.append(QString::fromUtf8(m_rubocop->readAllStandardOutput()));
-        if (m_outputBuffer.endsWith("--\n"))
+        qDebug() << qPrintable(m_outputBuffer) << endl;
+
+        if (m_outputBuffer.endsWith(QLatin1String("\n")))
             finishRuboCopHighlight();
     });
 
-    m_rubocop->start("ruby", {m_rubocopScript.fileName()});
+    qDebug() << "starting";
+  m_rubocop->start(QStringLiteral("/home/andrew/.opam/4.02.3/bin/ocamlmerlin"));
+
+    qDebug() <<"ended";
 }
 
 void RubocopHighlighter::finishRuboCopHighlight()
@@ -120,7 +140,6 @@ void RubocopHighlighter::finishRuboCopHighlight()
         m_busy = false;
         return;
     }
-
     Offenses offenses = processRubocopOutput();
     RubocopFuture rubocopFuture(offenses);
     TextEditor::SemanticHighlighter::incrementalApplyExtraAdditionalFormats(m_document->syntaxHighlighter(),
