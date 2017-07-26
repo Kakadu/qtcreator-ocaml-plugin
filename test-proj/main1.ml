@@ -30,12 +30,13 @@ object
   inherit hrRep
   method visitAccountant a = print_endline ("Visiting accountant " ^ a#getName)
   method visitSalesman s = print_endline ("Visiting salesman " ^ s#getName)
-end;;
+end
 
-let bob = new salesman "Bob";;
-let mary = new accountant "Mary";;
-let sue = new salesman "Sue";;
-let h = new lowerLevelHRRep;;
-bob#receiveEvaluation h;;
-mary#receiveEvaluation h;;
-sue#receiveEvaluation h;;
+let bob = new salesman "Bob"
+let mary = new accountant "Mary"
+let sue = new salesman "Sue"
+let h = new lowerLevelHRRep
+let _ = bob#receiveEvaluation h
+let _ = mary#receiveEvaluation h
+let _ = sue#receiveEvaluation h
+
