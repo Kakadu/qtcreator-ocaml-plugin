@@ -89,6 +89,18 @@ void EditorWidget::aboutToOpen(const QString &fileName, const QString &realFileN
     m_filePathDueToMaybeABug = realFileName;
 }
 
+void EditorWidget::findUsages()
+{
+    auto cursor = textCursor();
+    QString text = cursor.block().text();
+    if (text.isEmpty())
+        return;
+    const QTextBlock block = cursor.block();
+    const int line = block.blockNumber() + 1;
+    const int column = cursor.position() - block.position();
+    RubocopHighlighter::instance()->performFindUsages(textDocument(), line, column);
+}
+
 void EditorWidget::scheduleCodeModelUpdate()
 {
     m_codeModelUpdatePending = m_updateCodeModelTimer.isActive();

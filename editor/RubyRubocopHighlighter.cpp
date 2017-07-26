@@ -4,6 +4,7 @@
 #include <texteditor/semantichighlighter.h>
 #include <coreplugin/messagemanager.h>
 #include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/find/searchresultwindow.h>
 #include <projectexplorer/taskhub.h>
 
 #include <utils/asconst.h>
@@ -110,30 +111,55 @@ public:
     void setBusy(bool v) { m_busy = v; }
     bool isBusy() const { return m_busy; }
 
-    void parseOccurencesJson(const QJsonValue& v) {
-        QTC_CHECK(v.isArray());
+    void initRubocopProcess(const QStringList &args);
+    void sendFSMevent(const QString&);
+    void parseDiagnosticsJson(const QJsonValue& resp);
+    void parseDefinitionsJson(const QJsonValue& resp);
+    int lineColumnToPos(const int line, const int column);
 
-        foreach (const QJsonValue& v, v.toArray()) {
+    /* ********************************  search related stuff *****************/
+
+    void parseOccurencesJson(const QJsonValue& v) {
+        using namespace Core;
+        QJsonArray arr;
+        if (v.isArray())
+            arr = v.toArray();
+        else
+            arr.push_back(v);
+
+        qDebug() << arr;
+
+        SearchResult *search = SearchResultWindow::instance()->startNewSearch
+               (q_ptr->tr("OCaml usages:"),
+                QString(""),
+                "searchTerm",
+                SearchResultWindow::SearchOnly,
+                SearchResultWindow::PreserveCaseEnabled,
+                QLatin1String("OCamlEditor") );
+
+        SearchResultWindow::instance()->popup(IOutputPane::ModeSwitch | IOutputPane::WithFocus);
+
+        foreach (const QJsonValue& v, arr) {
             const QJsonObject& start = v.toObject().value("start").toObject();
             const QJsonObject& end = v.toObject().value("end").toObject();
             const int line1 = start.value("line").toInt();
             const int col1  = start.value("col").toInt();
             const int line2 = end.value("line").toInt();
             const int col2  = end.value("col").toInt();
-            const int p1 = lineColumnToPos(line1, col1);
-            const int p2 = lineColumnToPos(line2, col2);
-            const Range r(line1, col1 + 1,
-                    line2, col2 + 1,
-                    p1, p2-p1);
-            qDebug() << r;
+
+            processOneSearchResult(search, Search::TextPosition(line1, col1), Search::TextPosition(line2, col2) );
         }
     }
 
-    void initRubocopProcess(const QStringList &args);
-    void sendFSMevent(const QString&);
-    void parseDiagnosticsJson(const QJsonValue& resp);
-    void parseDefinitionsJson(const QJsonValue& resp);
-    int lineColumnToPos(const int line, const int column);
+    void processOneSearchResult(Core::SearchResult* search, const Core::Search::TextPosition& pos1, const Core::Search::TextPosition& pos2) {
+        QTC_CHECK(pos1.line == pos2.line);
+        using namespace Core;
+        auto fileName = document()->filePath().toString();
+
+        auto line = document()->document()->findBlockByLineNumber(pos1.line-1).text();
+        search->addResult(fileName, line, Search::TextRange(pos1, pos2) );
+    }
+
 };
 
 int RubocopHighlighterPrivate::lineColumnToPos(const int line, const int column) {
@@ -287,7 +313,10 @@ QString RubocopHighlighter::diagnosticAt(const Utils::FileName &file, int pos)
     if (it == d->diags().end())
         return QString();
 
-    return it->messages[Range(pos + 1, 0)];
+    if (it->messages.keys().count()>0)
+        return it->messages[Range(pos + 1, 0)];
+    else
+        return "";
 }
 
 void RubocopHighlighter::performGoToDefinition(TextEditor::TextDocument *document, const int line, const int column)
@@ -316,8 +345,7 @@ void RubocopHighlighter::performFindUsages(TextEditor::TextDocument *document, c
     d->sendFSMevent("occurencesAsked");
     const QString& pos = QString("%1:%2").arg(line).arg(column);
     auto path = document->filePath().toString();
-    QStringList args { "locate", "-identifier-at", pos/*, "-filename", path*/ };
-//    qDebug() << "locating at" << pos;
+    QStringList args { "occurrences", "-identifier-at", pos/*, "-filename", path*/ };
     d->initRubocopProcess(args);
     const QByteArray& file = document->contents();
     d->proc()->write(file.data(), file.length());

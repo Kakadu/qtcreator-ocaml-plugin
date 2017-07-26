@@ -10,6 +10,7 @@
 #include "editor/RubyQuickFixes.h"
 #include "editor/RubySymbolFilter.h"
 #include "editor/RubyCompletionAssist.h"
+#include "editor/RubyRubocopHighlighter.h"
 #include "projectmanager/RubyProject.h"
 
 #ifdef OCAML_WIZARD_SUPPORTED
@@ -20,6 +21,8 @@
 #include <coreplugin/icontext.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
+#include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/editormanager/ieditor.h>
 #include <projectexplorer/projectmanager.h>
 #include <projectexplorer/taskhub.h>
 
@@ -30,10 +33,19 @@
 #include <texteditor/texteditor.h>
 #include <texteditor/texteditorsettings.h>
 
+#include <editor/RubyEditorWidget.h>
+
 #include <QtWidgets/QAction>
 #include <QtWidgets/QMenu>
 
 namespace OCamlCreator {
+
+static EditorWidget *currentOCamlEditorWidget()
+{
+    if (Core::IEditor *currentEditor = Core::EditorManager::currentEditor())
+        return qobject_cast<EditorWidget*>(currentEditor->widget());
+    return nullptr;
+}
 
 Plugin *Plugin::m_instance = nullptr;
 
@@ -95,7 +107,10 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
     m_findUsagesAction = new QAction(tr("Find Usages"), this);
     cmd = ActionManager::registerAction(m_findUsagesAction, Constants::FIND_USAGES, context);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+U")));
-    //connect(m_findUsagesAction, &QAction::triggered, this, &CppEditorPlugin::findUsages);
+    connect(m_findUsagesAction, &QAction::triggered, [](){
+        auto w = currentOCamlEditorWidget();
+        w->findUsages();
+    });
     contextMenu->addAction(cmd);
     ocamlToolsMenu->addAction(cmd);
     }
