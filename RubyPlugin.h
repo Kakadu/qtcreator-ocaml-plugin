@@ -26,6 +26,7 @@ private:
 
     static Plugin* m_instance;
     QuickFixAssistProvider* m_quickFixProvider;
+    QAction *m_findUsagesAction;
 
 #ifdef WITH_TESTS
 private slots:

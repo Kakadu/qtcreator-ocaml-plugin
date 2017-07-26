@@ -17,6 +17,9 @@
 #endif
 
 #include <coreplugin/icore.h>
+#include <coreplugin/icontext.h>
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/actionmanager/actioncontainer.h>
 #include <projectexplorer/projectmanager.h>
 #include <projectexplorer/taskhub.h>
 
@@ -27,11 +30,15 @@
 #include <texteditor/texteditor.h>
 #include <texteditor/texteditorsettings.h>
 
+#include <QtWidgets/QAction>
+#include <QtWidgets/QMenu>
+
 namespace OCamlCreator {
 
-Plugin *Plugin::m_instance = 0;
+Plugin *Plugin::m_instance = nullptr;
 
 Plugin::Plugin()
+  : m_quickFixProvider(), m_findUsagesAction()
 {
     m_instance = this;
 }
@@ -62,6 +69,36 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
 
     addAutoReleasedObject(new EditorFactory);
 
+    {
+    using namespace Core;
+    ActionContainer *ocamlToolsMenu = ActionManager::createMenu(Constants::M_TOOLS_OCAML);
+    ocamlToolsMenu->menu()->setTitle("OCaml");
+    ActionContainer *toolsMenu = ActionManager::actionContainer(Core::Constants::M_TOOLS);
+    toolsMenu->addMenu(ocamlToolsMenu);
+
+    // context menu doest work yet
+    Context context(Constants::OCaml::EditorId);
+    ActionContainer *contextMenu = ActionManager::createMenu(Constants::M_CONTEXT);
+    Command *cmd;
+
+    QAction *switchAct = new QAction(tr("Switch Impl/Intf"), this);
+    cmd = ActionManager::registerAction(switchAct, Constants::SWITCH_INTF_IMPL, context);
+    cmd->setDefaultKeySequence(QKeySequence(tr("F4")));
+    contextMenu->addAction(cmd);
+    ocamlToolsMenu->addAction(cmd);
+
+    // there we reuse built-in action
+    cmd = ActionManager::command(TextEditor::Constants::FOLLOW_SYMBOL_UNDER_CURSOR);
+    contextMenu->addAction(cmd);
+    ocamlToolsMenu->addAction(cmd);
+
+    m_findUsagesAction = new QAction(tr("Find Usages"), this);
+    cmd = ActionManager::registerAction(m_findUsagesAction, Constants::FIND_USAGES, context);
+    cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+U")));
+    //connect(m_findUsagesAction, &QAction::triggered, this, &CppEditorPlugin::findUsages);
+    contextMenu->addAction(cmd);
+    ocamlToolsMenu->addAction(cmd);
+    }
     //ProjectExplorer::ProjectManager::registerProjectType<Project>(Constants::ProjectMimeType);
 
     // TODO: reenable this stuff

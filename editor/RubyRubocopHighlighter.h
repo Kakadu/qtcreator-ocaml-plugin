@@ -11,11 +11,6 @@
 #include <QElapsedTimer>
 #include <QTemporaryFile>
 
-#include <QtScxml/QScxmlStateMachine>
-#include "MerlinFSM.h"
-
-#include <functional>
-
 QT_FORWARD_DECLARE_CLASS(QProcess)
 
 namespace TextEditor { class TextDocument; }
@@ -48,7 +43,7 @@ public:
         const int value = other.pos;
         return pos < value && (pos + length) < value;
     }
-    inline QString toString() const {
+    operator QString() const {
         return QString("from {%1;%2} to {%3;%4} (pos=%5, len=%6)")
                 .arg(startLine)
                 .arg(startCol)
@@ -58,8 +53,6 @@ public:
                 .arg(length);
     }
 };
-
-QDebug operator<< (QDebug &d, const Range &r);
 
 typedef TextEditor::HighlightingResult Offense;
 typedef QVector<TextEditor::HighlightingResult> Offenses;
@@ -81,7 +74,7 @@ class RubocopHighlighterPrivate;
 
 class RubocopHighlighter : public QObject {
     Q_OBJECT
-    Q_DECLARE_PRIVATE(RubocopHighlighter);
+    Q_DECLARE_PRIVATE(RubocopHighlighter)
     RubocopHighlighterPrivate *d_ptr;
 public:
     RubocopHighlighter();
@@ -92,29 +85,14 @@ public:
     bool run(TextEditor::TextDocument *document, const QString &fileNameTip);
     QString diagnosticAt(const Utils::FileName &file, int pos);
     void performGoToDefinition(TextEditor::TextDocument *document, const int line, const int column);
-private:
-    Diagnostics processMerlinErrors(const QJsonValue& v);
+    void performFindUsages(TextEditor::TextDocument *document, const int line, const int column);
     void performErrorsCheck(const QByteArray&);
-    inline void sendFSMevent(const QString&);
-    void makeMerlinAskDiagnostics();
-    bool m_rubocopFound;
-    bool m_busy;
-    QProcess *m_rubocop;// m_rubocop - указатель на открываемый процесс
-    QTemporaryFile m_rubocopScript;//временный файл
-    QString m_outputBuffer;
 
+private:
     int m_startRevision;
-    TextEditor::TextDocument *m_document;
-    QHash<int, QTextCharFormat> m_extraFormats;
-
-    MerlinFSM m_chart;
-    QHash<Utils::FileName, Diagnostics> m_diagnostics;
 
     QElapsedTimer m_timer;
-    void parseDiagnosticsJson(const QJsonValue& resp);
-    void parseDefinitionsJson(const QJsonValue& resp);
 
-    void initRubocopProcess(const QStringList &args);
     void finishRuboCopHighlight();
     Offenses processRubocopOutput();
 

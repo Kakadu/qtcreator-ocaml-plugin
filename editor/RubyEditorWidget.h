@@ -26,6 +26,7 @@ public:
 
 protected:
     void finalizeInitialization() override;
+    void contextMenuEvent(QContextMenuEvent *) override;
 
 private:
     void scheduleCodeModelUpdate();

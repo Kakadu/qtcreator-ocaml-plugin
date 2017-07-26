@@ -9,10 +9,15 @@
 #include "RubyRubocopHighlighter.h"
 
 #include <texteditor/textdocument.h>
+#include <coreplugin/icontext.h>
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/actionmanager/actioncontainer.h>
+
 
 #include <QtCore/QDebug>
 #include <QtGui/QTextBlock>
 #include <QtGui/QTextCursor>
+#include <QtWidgets/QMenu>
 
 namespace OCamlCreator {
 
@@ -120,6 +125,50 @@ void EditorWidget::updateRubocop()
     }
 }
 
+void EditorWidget::contextMenuEvent(QContextMenuEvent *e)
+{
+    QPointer<QMenu> menu(new QMenu(this));
+    qDebug() << Q_FUNC_INFO;
+    Core::ActionContainer *mcontext = Core::ActionManager::actionContainer(Constants::M_CONTEXT);
+    QMenu *contextMenu = mcontext->menu();
+
+//    QMenu *quickFixMenu = new QMenu(tr("&Refactor"), menu);
+//    quickFixMenu->addAction(ActionManager::command(Constants::RENAME_SYMBOL_UNDER_CURSOR)->action());
+
+//    if (isSemanticInfoValidExceptLocalUses()) {
+//        d->m_useSelectionsUpdater.update(CppUseSelectionsUpdater::Synchronous);
+//        AssistInterface *interface = createAssistInterface(QuickFix, ExplicitlyInvoked);
+//        if (interface) {
+//            QScopedPointer<IAssistProcessor> processor(
+//                        CppEditorPlugin::instance()->quickFixProvider()->createProcessor());
+//            QScopedPointer<IAssistProposal> proposal(processor->perform(interface));
+//            if (!proposal.isNull()) {
+//                auto model = static_cast<GenericProposalModel *>(proposal->model());
+//                for (int index = 0; index < model->size(); ++index) {
+//                    auto item = static_cast<AssistProposalItem *>(model->proposalItem(index));
+//                    QuickFixOperation::Ptr op = item->data().value<QuickFixOperation::Ptr>();
+//                    QAction *action = quickFixMenu->addAction(op->description());
+//                    connect(action, &QAction::triggered, this, [op] { op->perform(); });
+//                }
+//                delete model;
+//            }
+//        }
+//    }
+
+    foreach (QAction *action, contextMenu->actions()) {
+        qDebug() << "adding smth";
+        menu->addAction(action);
+//        if (action->objectName() == QLatin1String(Constants::M_REFACTORING_MENU_INSERTION_POINT))
+//            menu->addMenu(quickFixMenu);
+    }
+
+    appendStandardContextMenuActions(menu);
+
+    menu->exec(e->globalPos());
+    if (!menu)
+        return;
+    delete menu;
+}
 void EditorWidget::finalizeInitialization()
 {
     connect(document(), &QTextDocument::contentsChanged, this, &EditorWidget::scheduleCodeModelUpdate);

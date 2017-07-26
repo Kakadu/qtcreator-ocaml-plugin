@@ -4,7 +4,11 @@
 namespace OCamlCreator {
 namespace Constants {
 
+const char M_TOOLS_OCAML[]                  = "OCamlCreator.MainMenu";
 const char TASK_CATEGORY_MERLIN_COMPILE[] = "Task.Category.Merlin.Compile";
+const char M_CONTEXT[] = "OcamlEditor.ContextMenu";
+const char SWITCH_INTF_IMPL[] = "OcamlEditor.SwitchIntfImpl";
+const char FIND_USAGES[] = "OcamlEditor.FindUsages";
 
 namespace OCaml {
 const char EditorId[] = "OCaml.OCamlEditor";

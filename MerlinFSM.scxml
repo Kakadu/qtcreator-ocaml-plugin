@@ -3,18 +3,21 @@
     <qt:editorinfo initialGeometry="21.35;-2.04;-20;-20;40;40"/>
     <datamodel/>
     <state id="On">
-        <qt:editorinfo geometry="359.72;89.94;-247.72;-146.06;1063.64;651.06" scenegeometry="359.72;89.94;112;-56.12;1063.64;651.06"/>
+        <qt:editorinfo geometry="365.06;82.46;-267.72;-230.17;1083.64;735.17" scenegeometry="365.06;82.46;97.34;-147.71;1083.64;735.17"/>
         <state id="Default">
-            <qt:editorinfo geometry="178.40;166.15;-60;-50;164;100" scenegeometry="538.12;256.09;478.12;206.09;164;100"/>
+            <qt:editorinfo geometry="179.47;173.62;-60;-50;164;100" scenegeometry="539.19;263.56;479.19;213.56;164;100"/>
             <transition type="external" event="sendCode" target="codeSent">
                 <qt:editorinfo startTargetFactors="7.78;75" endTargetFactors="94.37;68.77"/>
             </transition>
             <transition type="external" event="goToDefAsked" target="GoToDefSent"/>
+            <transition type="external" event="occurencesAsked" target="occurencesSent">
+                <qt:editorinfo movePoint="-68.34;7.47" endTargetFactors="27.82;12.19" startTargetFactors="29.09;87.93"/>
+            </transition>
         </state>
         <state id="codeSent">
             <qt:editorinfo geometry="-181.95;141.28;-22.23;-13.50;177.47;100" scenegeometry="177.77;231.22;155.54;217.72;177.47;100"/>
             <transition type="external" event="diagnosticsReceived" target="Default">
-                <qt:editorinfo startTargetFactors="94.73;40.94" movePoint="0;2.13" endTargetFactors="9.44;50.87"/>
+                <qt:editorinfo movePoint="0;2.13" startTargetFactors="94.73;40.94" endTargetFactors="9.44;50.87"/>
             </transition>
         </state>
         <onentry>
@@ -23,7 +26,13 @@
         <state id="GoToDefSent">
             <qt:editorinfo geometry="523.40;162.05;-60;-50;138;100" scenegeometry="883.12;251.99;823.12;201.99;138;100"/>
             <transition type="external" event="definitionsReceived" target="Default">
-                <qt:editorinfo startTargetFactors="6.49;68.75" movePoint="14.95;8.54" endTargetFactors="91.11;68.16"/>
+                <qt:editorinfo movePoint="14.95;8.54" startTargetFactors="6.49;68.75" endTargetFactors="91.11;68.16"/>
+            </transition>
+        </state>
+        <state id="occurencesSent">
+            <qt:editorinfo geometry="188.13;406.85;-60;-50;143;100" scenegeometry="553.19;489.31;493.19;439.31;143;100"/>
+            <transition type="external" event="occurencesReceived" target="Default">
+                <qt:editorinfo movePoint="99.30;7.47" endTargetFactors="65.05;88.79" startTargetFactors="70.46;8.62"/>
             </transition>
         </state>
     </state>
