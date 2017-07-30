@@ -406,7 +406,10 @@ void RubocopHighlighter::performGoToDefinition(TextEditor::TextDocument *documen
         return;
 
     Q_D(RubocopHighlighter);
-    d->sendFSMevent("goToDefAsked");
+    if (d->isBusy()) {
+        qWarning() << "TODO: implement queue";
+        return;
+    }
     const QString& pos = QString("%1:%2").arg(line).arg(column);
     auto path = document->filePath().toString();
     QStringList args { "locate", "-position", pos, "-filename", path };
@@ -415,6 +418,7 @@ void RubocopHighlighter::performGoToDefinition(TextEditor::TextDocument *documen
     const QByteArray& file = document->contents();
     d->proc()->write(file.data(), file.length());
     d->proc()->closeWriteChannel();
+    d->sendFSMevent("goToDefAsked");
 }
 
 void RubocopHighlighter::performFindUsages(TextEditor::TextDocument *document, const int line, const int column)
@@ -423,7 +427,10 @@ void RubocopHighlighter::performFindUsages(TextEditor::TextDocument *document, c
         return;
 
     Q_D(RubocopHighlighter);
-    d->sendFSMevent("occurencesAsked");
+    if (d->isBusy()) {
+        qWarning() << "TODO: implement queue";
+        return;
+    }
     const QString& pos = QString("%1:%2").arg(line).arg(column);
     auto path = document->filePath().toString();
     QStringList args { "occurrences", "-identifier-at", pos/*, "-filename", path*/ };
@@ -431,6 +438,7 @@ void RubocopHighlighter::performFindUsages(TextEditor::TextDocument *document, c
     const QByteArray& file = document->contents();
     d->proc()->write(file.data(), file.length());
     d->proc()->closeWriteChannel();
+    d->sendFSMevent("occurencesAsked");
 }
 
 void RubocopHighlighter::performErrorsCheck(const QByteArray &file)
@@ -439,12 +447,16 @@ void RubocopHighlighter::performErrorsCheck(const QByteArray &file)
         return;
 
     Q_D(RubocopHighlighter);
-    d->sendFSMevent("sendCode");
+    if (d->isBusy()) {
+        qWarning() << "TODO: implement queue";
+        return;
+    }
     auto path = Core::EditorManager::instance()->currentDocument()->filePath().toString();
     QStringList args {"errors", "-filename", path };
     d->initRubocopProcess(args);
     d->proc()->write(file.data(), file.length());
     d->proc()->closeWriteChannel();
+    d->sendFSMevent("sendCode");
 }
 
 void RubocopHighlighter::performCompletion(QTextDocument *doc, const QString& prefix, const int startPos,
@@ -455,15 +467,19 @@ void RubocopHighlighter::performCompletion(QTextDocument *doc, const QString& pr
         return;
 
     Q_D(RubocopHighlighter);
+    if (d->isBusy()) {
+        qWarning() << "TODO: implement queue";
+        return;
+    }
     d->m_asyncCompletionsAvailableHandler = handler;
-    d->m_oldStartPos = startPos;
     qDebug() << "start pos = " << startPos;
-    d->sendFSMevent("completionsAsked");
+    d->m_oldStartPos = startPos;
     const QString& pos = QString("%1:%2").arg(line+1).arg(column);
     QStringList args {"complete-prefix", "-position", pos, "-prefix", prefix };
     d->initRubocopProcess(args);
     d->proc()->write( doc->toPlainText().toLocal8Bit() );
     d->proc()->closeWriteChannel();
+    d->sendFSMevent("completionsAsked");
 }
 
 void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
@@ -502,6 +518,7 @@ void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
     new_args.push_front("single");
     static const QString opamPath = "/home/kakadu/.opam/4.04.0+fp+flambda/bin/";
     m_rubocop->processEnvironment().insert("MERLIN_LOG"," /tmp/merlin.qtcreator.log");
+    setBusy(true);
     m_rubocop->start(opamPath + "ocamlmerlin", new_args);
     qDebug() << QString("starting (PID=%1)").arg(m_rubocop->pid()) << "with args" << qPrintable(m_rubocop->arguments().join(' '));
 }
@@ -510,7 +527,8 @@ void RubocopHighlighter::finishRuboCopHighlight()
 {
     Q_D(RubocopHighlighter);
     if (m_startRevision != d->document()->document()->revision()) {
-        d->m_busy = false;
+        d->setBusy(false);
+        qDebug() << "Document changed, skipping merlin info";
         return;
     }
     // https://github.com/ocaml/merlin/blob/master/doc/dev/PROTOCOL.md

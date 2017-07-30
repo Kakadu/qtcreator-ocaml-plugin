@@ -19,29 +19,29 @@ namespace OCamlCreator {
 
 class Range {
 public:
-    int startLine;
-    int startCol;
-    int endLine;
-    int endCol;
-    int pos;
-    int length;
+    uint startLine;
+    uint startCol;
+    uint endLine;
+    uint endCol;
+    uint pos;
+    uint length;
     // TODO: make unsigned
 
     Range() : pos(0), length(0) { }
-    Range(int pos, int length) : pos(pos), length(length) { }
-    Range(int l1, int c1, int l2, int c2, int p = 0, int len = 0)
+    Range(uint pos, uint length) : pos(pos), length(length) { }
+    Range(uint l1, uint c1, uint l2, uint c2, uint p = 0, uint len = 0)
         : startLine(l1), startCol(c1), endLine(l2), endCol(c2)
         , pos(p), length(len)
     {}
 
     // Not really equal, since the length attribute is ignored.
     bool operator==(const Range &other) const {
-        const int value = other.pos;
+        const uint value = other.pos;
         return value >= pos && value < (pos + length);
     }
 
     bool operator<(const Range &other) const {
-        const int value = other.pos;
+        const uint value = other.pos;
         return pos < value && (pos + length) < value;
     }
     operator QString() const {
