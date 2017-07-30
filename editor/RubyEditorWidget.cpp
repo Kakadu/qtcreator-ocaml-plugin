@@ -91,6 +91,7 @@ void EditorWidget::aboutToOpen(const QString &fileName, const QString &realFileN
 
 void EditorWidget::findUsages()
 {
+    // TODO: use TextEditor::Concenience::convertPosition
     auto cursor = textCursor();
     QString text = cursor.block().text();
     if (text.isEmpty())
@@ -183,6 +184,7 @@ void EditorWidget::contextMenuEvent(QContextMenuEvent *e)
 }
 void EditorWidget::finalizeInitialization()
 {
+    // TODO: we probably do not need code model update in presence of merlin
     connect(document(), &QTextDocument::contentsChanged, this, &EditorWidget::scheduleCodeModelUpdate);
     connect(document(), &QTextDocument::contentsChanged, this, &EditorWidget::scheduleRubocopUpdate);
 }

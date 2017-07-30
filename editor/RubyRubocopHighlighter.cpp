@@ -1,7 +1,12 @@
+#include "OCamlCompletionAssist.cpp"
 #include "RubyRubocopHighlighter.h"
 
 #include <texteditor/textdocument.h>
 #include <texteditor/semantichighlighter.h>
+#include <texteditor/codeassist/genericproposal.h>
+#include <texteditor/codeassist/iassistprocessor.h>
+#include <texteditor/codeassist/iassistproposal.h>
+
 #include <coreplugin/messagemanager.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/find/searchresultwindow.h>
@@ -44,12 +49,15 @@ public:
     bool m_rubocopFound;
     bool m_busy;
     QString m_outputBuffer;
+    TextEditor::IAssistProcessor::AsyncCompletionsAvailableHandler m_asyncCompletionsAvailableHandler;
+    int m_oldStartPos;
 
 public:
     RubocopHighlighterPrivate(RubocopHighlighter *q) : q_ptr(q)
       , m_document(nullptr), m_extraFormats()
       , m_chart(nullptr), m_rubocop(nullptr)
       , m_rubocopFound(), m_busy(), m_outputBuffer()
+      , m_asyncCompletionsAvailableHandler(), m_oldStartPos()
     {
         QTextCharFormat format;
         format.setUnderlineColor(Qt::darkYellow);
@@ -65,13 +73,14 @@ public:
         m.insert("On",      true);
         m.insert("Default", true);
         m.insert("CodeSent", false);
+        m.insert("completionsSent", false);
         m_chart->setInitialValues(m);
-
+#if 0
         static QVector<QString> connectedStates;
         connectedStates << "Default" << "CodeSent"
     //                    << "DiagnosticsAsked" << "GoToDefault"
                            ;
-    #if 0
+
         foreach (const QString& s, connectedStates) {
             m_chart.connectToState(s, [s](bool b) {
                 qDebug() << qPrintable(QString("MerlinFSM in state %1 (%2)")
@@ -115,6 +124,7 @@ public:
     void sendFSMevent(const QString&);
     void parseDiagnosticsJson(const QJsonValue& resp);
     void parseDefinitionsJson(const QJsonValue& resp);
+    void parseCompletionsJson(const QJsonValue& resp);
     int lineColumnToPos(const int line, const int column);
 
     /* ********************************  search related stuff *****************/
@@ -198,11 +208,35 @@ void RubocopHighlighterPrivate::parseDefinitionsJson(const QJsonValue& resp)
     }
 }
 
+void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp)
+{
+    qDebug() << resp;
+    auto root = resp.toObject();
+    // ignore context for now
+    QTC_CHECK(root.value("entries").isArray());
+
+    QList<TextEditor::AssistProposalItemInterface *> items;
+    foreach (auto j, root.value("entries").toArray()) {
+        auto name = j.toObject().value("name").toString();
+        items << new OCamlCreator::MerlinAssistProposalItem(name, m_oldStartPos);
+    }
+
+    auto prop = new TextEditor::GenericProposal(m_oldStartPos, items);
+
+    if (m_asyncCompletionsAvailableHandler) {
+        // call and make empty
+        qDebug() << "calling handler";
+        m_asyncCompletionsAvailableHandler(prop);
+        m_asyncCompletionsAvailableHandler = [=](TextEditor::IAssistProposal*) { };
+    }
+}
+
 void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
 {
     Diagnostics diags;
     Offenses offenses;
     Q_Q(RubocopHighlighter);
+    Q_UNUSED(q);
 
     if (!resp.isArray()) {
         qWarning() << "not an array " << resp;
@@ -248,7 +282,7 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
     TextEditor::SemanticHighlighter::incrementalApplyExtraAdditionalFormats(document()->syntaxHighlighter(),
                                                                             rubocopFuture.future(), 0,
                                                                             offenses.count(), m_extraFormats);
-    q->generalMsg(QString("Got %1 offenses").arg(offenses.length()));
+//    q->generalMsg(QString("Got %1 offenses").arg(offenses.length()));
     }
     return;
 BAD_JSON:
@@ -366,9 +400,28 @@ void RubocopHighlighter::performErrorsCheck(const QByteArray &file)
     d->proc()->closeWriteChannel();
 }
 
+void RubocopHighlighter::performCompletion(QTextDocument *doc, const QString& prefix, const int startPos,
+           const int line, const int column, const AsyncCompletionsAvailableHandler &handler)
+{
+    Q_UNUSED(doc);
+    if (!Core::EditorManager::instance()->currentDocument())
+        return;
+
+    Q_D(RubocopHighlighter);
+    d->m_asyncCompletionsAvailableHandler = handler;
+    d->m_oldStartPos = startPos;
+    qDebug() << "start pos = " << startPos;
+    d->sendFSMevent("completionsAsked");
+    const QString& pos = QString("%1:%2").arg(line+1).arg(column);
+    QStringList args {"complete-prefix", "-position", pos, "-prefix", prefix };
+    d->initRubocopProcess(args);
+    d->proc()->write( doc->toPlainText().toLocal8Bit() );
+    d->proc()->closeWriteChannel();
+}
+
 void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
 {
-    qDebug() << "init process for a single message";
+//    qDebug() << "init process for a single message";
 
     m_rubocop = new QProcess;
     void (QProcess::*signal)(int) = &QProcess::finished;
@@ -380,7 +433,7 @@ void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
         }
     });
     QObject::connect(m_rubocop, &QProcess::started, [&]() {
-        qDebug() << "started";
+//        qDebug() << "started";
     });
     QObject::connect(m_rubocop, &QProcess::errorOccurred, [&](QProcess::ProcessError e) {
         qDebug() << "error "   << e;
@@ -443,6 +496,9 @@ void RubocopHighlighter::finishRuboCopHighlight()
         } else if (d->fsm()->isActive("occurencesSent")) {
             d->sendFSMevent("occurencesReceived");
             d->parseOccurencesJson(root.value("value"));
+        } else if (d->fsm()->isActive("completionsSent")) {
+            d->sendFSMevent("completionsReceived");
+            d->parseCompletionsJson(root.value("value"));
         } else {
             d->sendFSMevent("errorHappend");
             qWarning() << "Got a result but the state is not detectable";

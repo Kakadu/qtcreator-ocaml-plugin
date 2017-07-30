@@ -107,6 +107,7 @@ CompletionAssistProcessor::CompletionAssistProcessor()
 
 TextEditor::IAssistProposal *CompletionAssistProcessor::perform(const TextEditor::AssistInterface *interface)
 {
+    qDebug() << Q_FUNC_INFO;
     if (interface->reason() == TextEditor::IdleEditor)
         return 0;
 

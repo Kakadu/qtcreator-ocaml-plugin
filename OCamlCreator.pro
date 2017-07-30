@@ -17,7 +17,6 @@ SOURCES += RubyPlugin.cpp \
     editor/RubyAutoCompleter.cpp \
     editor/RubyCodeModel.cpp \
     editor/RubyCodeStylePreferencesFactory.cpp \
-    editor/RubyCompletionAssist.cpp \
     editor/RubyEditor.cpp \
     editor/RubyEditorDocument.cpp \
     editor/RubyEditorFactory.cpp \
@@ -30,9 +29,12 @@ SOURCES += RubyPlugin.cpp \
     editor/RubyRubocopHighlighter.cpp \
     editor/RubyScanner.cpp \
     editor/RubySymbolFilter.cpp \
+    editor/OCamlCompletionAssist.cpp \
     projectmanager/RubyProject.cpp \
     projectmanager/RubyProjectNode.cpp \
+    #editor/RubyCompletionAssist.cpp \
     #projectmanager/RubyProjectWizard.cpp
+
 
 equals(TEST, 1) {
     SOURCES += editor/ScannerTest.cpp
@@ -44,7 +46,6 @@ HEADERS += RubyPlugin.h \
     editor/RubyAutoCompleter.h \
     editor/RubyCodeModel.h \
     editor/RubyCodeStylePreferencesFactory.h \
-    editor/RubyCompletionAssist.h \
     editor/RubyEditor.h \
     editor/RubyEditorDocument.h \
     editor/RubyEditorFactory.h \
@@ -59,9 +60,11 @@ HEADERS += RubyPlugin.h \
     editor/RubySymbol.h \
     editor/RubySymbolFilter.h \
     editor/SourceCodeStream.h \
+    editor/OCamlCompletionAssist.h \
     projectmanager/RubyProject.h \
     projectmanager/RubyProjectNode.h \
     #projectmanager/RubyProjectWizard.h
+    #editor/RubyCompletionAssist.h \
 
 RESOURCES += \
     Ruby.qrc

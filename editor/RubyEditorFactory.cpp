@@ -1,5 +1,5 @@
 #include "RubyAutoCompleter.h"
-#include "RubyCompletionAssist.h"
+#include "OCamlCompletionAssist.h"
 #include "RubyEditorDocument.h"
 #include "RubyEditor.h"
 #include "RubyEditorFactory.h"
@@ -30,7 +30,7 @@ EditorFactory::EditorFactory()
     setEditorWidgetCreator([]() { return new EditorWidget; });
     setEditorCreator([]() { return new Editor; });
     setAutoCompleterCreator([]() { return new AutoCompleter; });
-    setCompletionAssistProvider(new CompletionAssistProvider);
+    setCompletionAssistProvider(new OCamlCompletionAssistProvider);
     //setSyntaxHighlighterCreator([]() { return new Highlighter; });
     setUseGenericHighlighter(true);
     setCommentDefinition(Utils::CommentDefinition::HashStyle);

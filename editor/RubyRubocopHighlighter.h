@@ -13,7 +13,7 @@
 
 QT_FORWARD_DECLARE_CLASS(QProcess)
 
-namespace TextEditor { class TextDocument; }
+namespace TextEditor { class TextDocument; class IAssistProcessor; class IAssistProposal; }
 
 namespace OCamlCreator {
 
@@ -25,6 +25,7 @@ public:
     int endCol;
     int pos;
     int length;
+    // TODO: make unsigned
 
     Range() : pos(0), length(0) { }
     Range(int pos, int length) : pos(pos), length(length) { }
@@ -87,6 +88,21 @@ public:
     void performGoToDefinition(TextEditor::TextDocument *document, const int line, const int column);
     void performFindUsages(TextEditor::TextDocument *document, const int line, const int column);
     void performErrorsCheck(const QByteArray&);
+
+    using AsyncCompletionsAvailableHandler = std::function<void (TextEditor::IAssistProposal *proposal)>;
+    ///
+    /// \brief performCompletion
+    /// \param doc is the document where text belongs
+    /// \param prefix is the entered prefix we try to complete
+    /// \param startPos
+    /// \param line a line in a file (indexing starts from 0)
+    /// \param pos
+    /// \param handler
+    ///
+    void performCompletion(QTextDocument *doc, const QString& prefix, const int startPos, const int line, const int pos,
+                           const AsyncCompletionsAvailableHandler &handler
+                           );
+    //TODO: doc may be unused
 
 private:
     int m_startRevision;
