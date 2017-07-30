@@ -3,6 +3,10 @@ class virtual ['hrRep] employee = object
   method virtual getName : string
 end
 
+let () = ()
+let () = List.iter (fun _ -> ())
+let x = 1
+
 class ['a] accountant name =
 object(self)
   inherit ['a] employee
@@ -39,4 +43,5 @@ let h = new lowerLevelHRRep
 let _ = bob#receiveEvaluation h
 let _ = mary#receiveEvaluation h
 let _ = sue#receiveEvaluation h
+
 
