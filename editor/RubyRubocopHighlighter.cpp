@@ -27,6 +27,41 @@
 
 namespace OCamlCreator {
 
+typedef ProjectExplorer::Task::TaskType TaskType;
+
+struct SingleDiagnostic {
+    QString message;
+    TaskType typ;
+
+    SingleDiagnostic() : message(), typ() {}
+    SingleDiagnostic(const QString& msg, ProjectExplorer::Task::TaskType t) : message(msg), typ(t)
+    {}
+
+    operator QString() {
+        QString typStr;
+        switch (typ) {
+        case ProjectExplorer::Task::Error:   typStr = "Error";   break;
+        case ProjectExplorer::Task::Warning: typStr = "Warning"; break;
+        case ProjectExplorer::Task::Unknown: typStr = "Unknown"; break;
+        }
+        QTC_CHECK(!typStr.isEmpty());
+        return QString("%1: %2").arg(typStr).arg(message);
+    }
+};
+
+struct Diagnostics {
+    Diagnostics() : m_isValid(false) {}
+    QMap<Range, SingleDiagnostic> messages;
+    operator int() const {
+        return m_isValid;
+    }
+    void setValid(bool b) { m_isValid = b; }
+    void setValid() { setValid(true); }
+    void setInvalid() { m_isValid = false; }
+private:
+    bool m_isValid;
+};
+
 class RubocopFuture : public QFutureInterface<TextEditor::HighlightingResult>, public QObject
 {
 public:
@@ -246,6 +281,7 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
     diags.setValid();
 
     foreach (const QJsonValue& v, resp.toArray()) {
+        qDebug() << "diagnostic " << v;
         const QJsonObject& start = v.toObject().value("start").toObject();
         const QJsonObject& end = v.toObject().value("end").toObject();
         const int line1 = start.value("line").toInt();
@@ -259,7 +295,17 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
                 p1, p2-p1);
 
         const QString& msg = v.toObject().value("message").toString();
-        diags.messages[r] = msg;
+        const QString& typStr = v.toObject().value("type").toString();
+        TaskType taskTyp = ProjectExplorer::Task::Unknown;
+        if (typStr == "error")
+            taskTyp = ProjectExplorer::Task::Error;
+        else if (typStr == "warning")
+            taskTyp = ProjectExplorer::Task::Warning;
+        else {
+            QTC_ASSERT(false, {qDebug() << "Unsupported info from merlin";});
+        }
+        diags.messages[r] = SingleDiagnostic(msg, taskTyp);
+
 
         // TODO: response contains filed valid: bool
         // but it seems not important
@@ -271,7 +317,8 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
     for (const Range& r : diags.messages.keys()) {
         offenses << TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, 2);
         using namespace ProjectExplorer;
-        TaskHub::instance()->addTask(Task::Error, diags.messages.value(r, "?"),
+        auto taskInfo = diags.messages.value(r);
+        TaskHub::instance()->addTask(taskInfo.typ, taskInfo.message,
                                      Constants::TASK_CATEGORY_MERLIN_COMPILE);
     }
     {
@@ -555,42 +602,42 @@ void RubocopHighlighter::finishRuboCopHighlight()
 //    return d;
 //}
 
-static int kindOfSeverity(const QStringRef &severity)
-{
-    switch (severity.at(0).toLatin1()) {
-    case 'W': return 0; // yellow
-    case 'C': return 1; // green
-    default:  return 2; // red
-    }
-}
+//static int kindOfSeverity(const QStringRef &severity)
+//{
+//    switch (severity.at(0).toLatin1()) {
+//    case 'W': return 0; // yellow
+//    case 'C': return 1; // green
+//    default:  return 2; // red
+//    }
+//}
 
-Offenses RubocopHighlighter::processRubocopOutput()
-{
-    Q_D(RubocopHighlighter);
-    Offenses result;
-    Diagnostics &diag = d->diags()[d->doc()->filePath()] = Diagnostics();
+//Offenses RubocopHighlighter::processRubocopOutput()
+//{
+//    Q_D(RubocopHighlighter);
+//    Offenses result;
+//    Diagnostics &diag = d->diags()[d->doc()->filePath()] = Diagnostics();
 
-    const QVector<QStringRef> lines = d->outBuf().splitRef('\n');
-    for (const QStringRef &line : lines) {
-        if (line == "--")
-            break;
-        QVector<QStringRef> fields = line.split(':');
-        if (fields.size() < 5)
-            continue;
-        int kind = kindOfSeverity(fields[0]);
-        int lineN = fields[1].toInt();
-        int column = fields[2].toInt();
-        int length = fields[3].toInt();
-        result << TextEditor::HighlightingResult(uint(lineN), uint(column), uint(length), kind);
+//    const QVector<QStringRef> lines = d->outBuf().splitRef('\n');
+//    for (const QStringRef &line : lines) {
+//        if (line == "--")
+//            break;
+//        QVector<QStringRef> fields = line.split(':');
+//        if (fields.size() < 5)
+//            continue;
+//        int kind = kindOfSeverity(fields[0]);
+//        int lineN = fields[1].toInt();
+//        int column = fields[2].toInt();
+//        int length = fields[3].toInt();
+//        result << TextEditor::HighlightingResult(uint(lineN), uint(column), uint(length), kind);
 
-        int messagePos = fields[4].position();
-        QStringRef message(line.string(), messagePos, line.position() + line.length() - messagePos);
-        diag.messages[lineColumnLengthToRange(lineN, column, length)] = message.toString();
-    }
-    d->clearBuf();
+//        int messagePos = fields[4].position();
+//        QStringRef message(line.string(), messagePos, line.position() + line.length() - messagePos);
+//        diag.messages[lineColumnLengthToRange(lineN, column, length)] = message.toString();
+//    }
+//    d->clearBuf();
 
-    return result;
-}
+//    return result;
+//}
 
 void RubocopHighlighter::generalMsg(const QString &msg) const {
     Core::MessageManager::instance()->write(msg);

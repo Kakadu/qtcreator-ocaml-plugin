@@ -58,19 +58,6 @@ public:
 typedef TextEditor::HighlightingResult Offense;
 typedef QVector<TextEditor::HighlightingResult> Offenses;
 
-struct Diagnostics {
-    Diagnostics() : m_isValid(false) {}
-    QMap<Range, QString> messages;
-    operator int() const {
-        return m_isValid;
-    }
-    void setValid(bool b) { m_isValid = b; }
-    void setValid() { setValid(true); }
-    void setInvalid() { m_isValid = false; }
-private:
-    bool m_isValid;
-};
-
 class RubocopHighlighterPrivate;
 
 class RubocopHighlighter : public QObject {
