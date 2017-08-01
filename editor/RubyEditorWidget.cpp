@@ -9,6 +9,7 @@
 #include "RubyRubocopHighlighter.h"
 
 #include <texteditor/textdocument.h>
+#include <texteditor/convenience.h>
 #include <coreplugin/icontext.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
@@ -36,12 +37,12 @@ EditorWidget::EditorWidget()
     m_commentDefinition.multiLineEnd.clear();
     m_commentDefinition.singleLine = '#';
 
-    m_updateCodeModelTimer.setSingleShot(true);
-    m_updateCodeModelTimer.setInterval(CODEMODEL_UPDATE_INTERVAL);
-    connect(&m_updateCodeModelTimer, &QTimer::timeout, this, [this] {
-        if (m_codeModelUpdatePending)
-            updateCodeModel();
-    });
+//    m_updateCodeModelTimer.setSingleShot(true);
+//    m_updateCodeModelTimer.setInterval(CODEMODEL_UPDATE_INTERVAL);
+//    connect(&m_updateCodeModelTimer, &QTimer::timeout, this, [this] {
+//        if (m_codeModelUpdatePending)
+//            updateCodeModel();
+//    });
 
     m_updateRubocopTimer.setSingleShot(true);
     m_updateRubocopTimer.setInterval(RUBOCOP_UPDATE_INTERVAL);
@@ -96,10 +97,10 @@ void EditorWidget::findUsages()
     QString text = cursor.block().text();
     if (text.isEmpty())
         return;
-    const QTextBlock block = cursor.block();
-    const int line = block.blockNumber() + 1;
-    const int column = cursor.position() - block.position();
-    RubocopHighlighter::instance()->performFindUsages(textDocument(), line, column);
+
+    int line, col;
+    TextEditor::Convenience::convertPosition(this->document(), cursor.position(), &line, &col);
+    RubocopHighlighter::instance()->performFindUsages(textDocument(), line, col);
 }
 
 void EditorWidget::scheduleCodeModelUpdate()

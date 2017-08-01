@@ -33,28 +33,6 @@ private:
     QScopedPointer<const TextEditor::AssistInterface> m_interface;
 };
 
-class MerlinAssistProposalItem : public TextEditor::AssistProposalItemInterface
-{
-public:
-    MerlinAssistProposalItem(const QString &text, const int prefixStartPos);
-
-    // AssistProposalItemInterface interface
-public:
-    QString text() const override;
-    bool implicitlyApplies() const override;
-    bool prematurelyApplies(const QChar &typedCharacter) const override;
-    void apply(TextEditor::TextDocumentManipulatorInterface &manipulator, int basePosition) const override;
-    QIcon icon() const override;
-    QString detail() const override;
-    bool isSnippet() const override;
-    bool isValid() const override;
-    quint64 hash() const override;
-
-private:
-    const QString m_text;
-    const int     m_prefixPos;
-};
-
 }
 
 #endif // OCAMLCOMPLETEIONASSIST_H

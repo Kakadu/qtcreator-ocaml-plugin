@@ -6,6 +6,7 @@
 #include <texteditor/codeassist/genericproposal.h>
 #include <texteditor/codeassist/iassistprocessor.h>
 #include <texteditor/codeassist/iassistproposal.h>
+#include <texteditor/codeassist/assistproposalitem.h>
 
 #include <coreplugin/messagemanager.h>
 #include <coreplugin/editormanager/editormanager.h>
@@ -46,6 +47,29 @@ struct SingleDiagnostic {
         }
         QTC_CHECK(!typStr.isEmpty());
         return QString("%1: %2").arg(typStr).arg(message);
+    }
+
+    TextEditor::HighlightingResult toHighlightResult(const Range &r) const {
+        int kind = -1;
+        Q_UNUSED(kind);
+        TextEditor::TextStyles style;
+        style.mixinStyles.initializeElements();
+        switch (typ) {
+        case ProjectExplorer::Task::Error:
+            kind = 2;
+            style.mainStyle = TextEditor::C_ERROR;
+            break;
+        case ProjectExplorer::Task::Warning:
+            kind = 0;
+            style.mainStyle = TextEditor::C_WARNING;
+            break;
+        case ProjectExplorer::Task::Unknown:
+            return TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, 1);
+            break;
+        }
+
+        // return TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, kind);
+        return TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, style);
     }
 };
 
@@ -253,7 +277,9 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp)
     QList<TextEditor::AssistProposalItemInterface *> items;
     foreach (auto j, root.value("entries").toArray()) {
         auto name = j.toObject().value("name").toString();
-        items << new OCamlCreator::MerlinAssistProposalItem(name, m_oldStartPos);
+        auto item = new TextEditor::AssistProposalItem();
+        item->setText(name);
+        items << item;
     }
 
     auto prop = new TextEditor::GenericProposal(m_oldStartPos, items);
@@ -281,7 +307,7 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
     diags.setValid();
 
     foreach (const QJsonValue& v, resp.toArray()) {
-        qDebug() << "diagnostic " << v;
+        //qDebug() << "diagnostic " << v;
         const QJsonObject& start = v.toObject().value("start").toObject();
         const QJsonObject& end = v.toObject().value("end").toObject();
         const int line1 = start.value("line").toInt();
@@ -315,9 +341,9 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
     // and add tasks to the TaskHub (Issues bottom pane)
     ProjectExplorer::TaskHub::clearTasks(Constants::TASK_CATEGORY_MERLIN_COMPILE);
     for (const Range& r : diags.messages.keys()) {
-        offenses << TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, 2);
-        using namespace ProjectExplorer;
         auto taskInfo = diags.messages.value(r);
+        offenses << taskInfo.toHighlightResult(r);
+        using namespace ProjectExplorer;
         TaskHub::instance()->addTask(taskInfo.typ, taskInfo.message,
                                      Constants::TASK_CATEGORY_MERLIN_COMPILE);
     }
@@ -475,7 +501,11 @@ void RubocopHighlighter::performCompletion(QTextDocument *doc, const QString& pr
     qDebug() << "start pos = " << startPos;
     d->m_oldStartPos = startPos;
     const QString& pos = QString("%1:%2").arg(line+1).arg(column);
-    QStringList args {"complete-prefix", "-position", pos, "-prefix", prefix };
+    QStringList args { "complete-prefix"
+                     , "-position", pos
+                     , "-prefix", prefix
+                     , "-doc", "true"
+                     };
     d->initRubocopProcess(args);
     d->proc()->write( doc->toPlainText().toLocal8Bit() );
     d->proc()->closeWriteChannel();
@@ -526,11 +556,12 @@ void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
 void RubocopHighlighter::finishRuboCopHighlight()
 {
     Q_D(RubocopHighlighter);
-    if (m_startRevision != d->document()->document()->revision()) {
-        d->setBusy(false);
-        qDebug() << "Document changed, skipping merlin info";
-        return;
-    }
+//    if (m_startRevision != d->document()->document()->revision()) {
+//        d->setBusy(false);
+//        qDebug() << "Document changed, skipping merlin info";
+//        return;
+//    }
+
     // https://github.com/ocaml/merlin/blob/master/doc/dev/PROTOCOL.md
     // for protocol details
 

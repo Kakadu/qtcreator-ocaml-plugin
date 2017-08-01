@@ -13,7 +13,7 @@
 #include <QTextBlock>
 #include <QDebug>
 
-namespace OCamlCreator {
+namespace RubyCreator {
 
 enum KindOfCompletion {
     MayBeAIdentifier,

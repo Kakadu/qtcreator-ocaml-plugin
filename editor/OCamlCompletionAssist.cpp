@@ -2,6 +2,7 @@
 
 #include <utils/qtcassert.h>
 
+#include <texteditor/convenience.h>
 #include <texteditor/codeassist/completionassistprovider.h>
 #include <texteditor/codeassist/iassistprocessor.h>
 #include <texteditor/codeassist/iassistproposal.h>
@@ -47,23 +48,23 @@ TextEditor::IAssistProposal *CompletionAssistProcessor::perform(const TextEditor
 
     setPerformWasApplicable(true);
 
-    int startPosition = interface->position();
-    const int startOfPrefix = findStartOfName();
+    int curPosition = interface->position();
 
+    int askedLine, askedCol, prefixLine, prefixCol;
+    TextEditor::Convenience::convertPosition(interface->textDocument(), curPosition, &askedLine, &askedCol);
+    const int startPosition = findStartOfName();
+    TextEditor::Convenience::convertPosition(interface->textDocument(), startPosition, &prefixLine, &prefixCol);
+    qDebug() << QString("prefix(Line,Col) = (%1, %2)").arg(prefixLine).arg(prefixCol);
     // FIXME: We should check the block status in case of multi-line tokens
-    QTextBlock block = interface->textDocument()->findBlock(startPosition);
-    int linePosition = startPosition - block.position();
-    const QString line =
-            interface->textAt(startOfPrefix, startPosition-startOfPrefix);
-    qDebug() << "asked prefix is " << line
-             << QString("with startPos = %1, linePos = %2").arg(startPosition).arg(linePosition);
+    const QString prefix =
+            interface->textAt(startPosition, curPosition-startPosition);
 
     RubocopHighlighter::instance()->performCompletion(
                 interface->textDocument(),
-                line, startPosition,
-                block.firstLineNumber(), linePosition,
+                prefix,
+                startPosition,
+                askedLine, askedCol,
                 [this](TextEditor::IAssistProposal *proposal) {
-                    qDebug() << "Setting proposal of length " << proposal->model()->size();
                     this->setAsyncProposalAvailable(proposal);
                 } );
 
@@ -97,65 +98,6 @@ int CompletionAssistProcessor::findStartOfName(int pos) const
     } while (isValidIdentifierChar(chr));
 
     return pos + 1;
-}
-
-MerlinAssistProposalItem::MerlinAssistProposalItem(const QString &text, const int prefixStartPos)
-  : m_text(text), m_prefixPos(prefixStartPos)
-{
-
-}
-
-QString MerlinAssistProposalItem::text() const
-{
-    return m_text;
-}
-
-bool MerlinAssistProposalItem::implicitlyApplies() const
-{
-    return false;
-}
-
-bool MerlinAssistProposalItem::prematurelyApplies(const QChar &typedCharacter) const
-{
-    Q_UNUSED(typedCharacter);
-    return false;
-}
-
-void MerlinAssistProposalItem::apply(TextEditor::TextDocumentManipulatorInterface &manip, int basePosition) const
-{
-    qDebug() << Q_FUNC_INFO;
-    QTC_CHECK(basePosition >= m_prefixPos);
-    Q_UNUSED(basePosition);
-
-    qDebug() << "text starting from passed pos-2 = " << manip.textAt(basePosition-2, 2);
-    qDebug() << "text starting from passed pos =   " << manip.textAt(basePosition, 2);
-    qDebug() << "prefix start pos              =   " << m_prefixPos;
-    manip.replace(m_prefixPos, basePosition-m_prefixPos, m_text);
-}
-
-QIcon MerlinAssistProposalItem::icon() const
-{
-    return QIcon();
-}
-
-QString MerlinAssistProposalItem::detail() const
-{
-    return "";
-}
-
-bool MerlinAssistProposalItem::isSnippet() const
-{
-    return false;
-}
-
-bool MerlinAssistProposalItem::isValid() const
-{
-    return true;
-}
-
-quint64 MerlinAssistProposalItem::hash() const
-{
-    return qHash(m_text);
 }
 
 }
