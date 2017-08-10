@@ -27,6 +27,19 @@
 #include <QJsonDocument>
 
 namespace OCamlCreator {
+typedef TextEditor::IAssistProcessor::AsyncCompletionsAvailableHandler CompletionsHandler;
+
+struct MerlinRequestBase { };
+struct MerlinRequestErrors : public MerlinRequestBase {
+};
+
+struct MerlinRequestComplete : public MerlinRequestBase {
+    CompletionsHandler m_asyncCompletionsAvailableHandler;
+    int m_oldStartPos;
+    MerlinRequestComplete(int pos, const CompletionsHandler& h)
+        : m_asyncCompletionsAvailableHandler(h), m_oldStartPos(pos)
+    {}
+};
 
 typedef ProjectExplorer::Task::TaskType TaskType;
 
@@ -65,7 +78,6 @@ struct SingleDiagnostic {
             break;
         case ProjectExplorer::Task::Unknown:
             return TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, 1);
-            break;
         }
 
         // return TextEditor::HighlightingResult(r.startLine, r.startCol, r.length, kind);
@@ -616,78 +628,6 @@ void RubocopHighlighter::finishRuboCopHighlight()
     d->setBusy(false);
 }
 
-//Diagnostics RubocopHighlighter::processMerlinErrors(const QJsonValue& v)
-//{
-//    Q_D(RubocopHighlighter);
-//    if (!v.isArray()) {
-//        qDebug() << "not an array" << v;
-//        return Diagnostics();
-//    }
-//    Diagnostics &d = m_diagnostics[m_document->filePath()] = Diagnostics();
-//    d.setValid();
-
-//    QJsonArray arr = v.toArray();
-//    foreach (const QJsonValue& v, arr) {
-//        const QJsonObject& start = v.toObject().take("start").toObject();
-//        const QJsonObject& end = v.toObject().take("end").toObject();
-//        const int line1 = start.value("line").toInt();
-//        const int col1 = start.value("col").toInt();
-//        const int p1 = lineColumnToPos(line1, col1);
-//        const int p2 = lineColumnToPos(end.value("line").toInt(),
-//                                       end.value("col").toInt() );
-//        Range r(start.value("line").toInt(),
-//                start.value("col").toInt() + 1,
-//                end.value("line").toInt(),
-//                end.value("col").toInt() + 1,
-//                p1, p2-p1);
-
-//        const QString& msg = v.toObject().value("message").toString();
-//        d.messages[r] = msg;
-
-//        // TODO: response contains filed valid: bool
-//        // Undestand why it is important
-//    }
-
-//    return d;
-//}
-
-//static int kindOfSeverity(const QStringRef &severity)
-//{
-//    switch (severity.at(0).toLatin1()) {
-//    case 'W': return 0; // yellow
-//    case 'C': return 1; // green
-//    default:  return 2; // red
-//    }
-//}
-
-//Offenses RubocopHighlighter::processRubocopOutput()
-//{
-//    Q_D(RubocopHighlighter);
-//    Offenses result;
-//    Diagnostics &diag = d->diags()[d->doc()->filePath()] = Diagnostics();
-
-//    const QVector<QStringRef> lines = d->outBuf().splitRef('\n');
-//    for (const QStringRef &line : lines) {
-//        if (line == "--")
-//            break;
-//        QVector<QStringRef> fields = line.split(':');
-//        if (fields.size() < 5)
-//            continue;
-//        int kind = kindOfSeverity(fields[0]);
-//        int lineN = fields[1].toInt();
-//        int column = fields[2].toInt();
-//        int length = fields[3].toInt();
-//        result << TextEditor::HighlightingResult(uint(lineN), uint(column), uint(length), kind);
-
-//        int messagePos = fields[4].position();
-//        QStringRef message(line.string(), messagePos, line.position() + line.length() - messagePos);
-//        diag.messages[lineColumnLengthToRange(lineN, column, length)] = message.toString();
-//    }
-//    d->clearBuf();
-
-//    return result;
-//}
-
 void RubocopHighlighter::generalMsg(const QString &msg) const {
     Core::MessageManager::instance()->write(msg);
 }
@@ -695,7 +635,7 @@ void RubocopHighlighter::generalMsg(const QString &msg) const {
 OCamlCreator::Range RubocopHighlighter::lineColumnLengthToRange(int line, int column, int length)
 {
     Q_D(RubocopHighlighter);
-    int pos = d->lineColumnToPos(line, column);
+    uint pos = static_cast<uint>( d->lineColumnToPos(line, column) );
     return OCamlCreator::Range(pos, length);
 }
 
