@@ -15,11 +15,8 @@ public:
     TextEditor::IAssistProcessor *createProcessor() const override;
 
     IAssistProvider::RunType runType() const override;
-    int activationCharSequenceLength() const override { return 1; }
-    bool isActivationCharSequence(const QString &sequence) const override {
-        Q_UNUSED(sequence);
-        return false;
-    }
+    int activationCharSequenceLength() const override;
+    bool isActivationCharSequence(const QString &sequence) const override;
 };
 
 class CompletionAssistProcessor : public TextEditor::IAssistProcessor

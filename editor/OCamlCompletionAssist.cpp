@@ -43,7 +43,7 @@ TextEditor::IAssistProposal *CompletionAssistProcessor::perform(const TextEditor
     // There we trigger request to merlin
     m_interface.reset(interface);
 
-    if (interface->reason() != TextEditor::ExplicitlyInvoked)
+    if (interface->reason() == TextEditor::IdleEditor)
         return nullptr;
 
     setPerformWasApplicable(true);
@@ -98,6 +98,24 @@ int CompletionAssistProcessor::findStartOfName(int pos) const
     } while (isValidIdentifierChar(chr));
 
     return pos + 1;
+}
+
+int OCamlCompletionAssistProvider::activationCharSequenceLength() const
+{
+    return 2;
+}
+
+bool OCamlCompletionAssistProvider::isActivationCharSequence(const QString &sequence) const
+{
+    const QChar &ch  = sequence.at(1);
+    const QChar &ch2 = sequence.at(0);
+
+    if (ch == '.' || ch2 == '.')
+        return true;
+    if (isValidAsciiIdentifierChar(ch) && isValidAsciiIdentifierChar(ch2)) {
+        return true;
+    }
+    return false;
 }
 
 }
