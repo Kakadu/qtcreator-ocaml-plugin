@@ -285,6 +285,9 @@ public:
     int lineColumnToPos(QTextDocument *doc, const int line, const int column);
 
     void enqueMsg(MerlinRequestBase *msg);
+    void processingFinished();
+    void sendTopMessage();
+
     /* ********************************  search related stuff *****************/
 
     void parseOccurencesJson(const QJsonValue& v) {
@@ -339,17 +342,36 @@ int RubocopHighlighterPrivate::lineColumnToPos(QTextDocument *doc, const int lin
 void RubocopHighlighterPrivate::enqueMsg(MerlinRequestBase *msg)
 {
     m_msgQueue.enqueue( QSharedPointer<MerlinRequestBase>(msg) );
-    if (m_busy) {
-        return;
-    }
+
     if (! msg->isValid()) {
         qWarning() << "we scheduled a merlin request but it is not valid. Skipping";
         return;
     }
+
+    if (m_busy)
+        return;
+
     // run request immediately
+    sendTopMessage();
+}
+
+void RubocopHighlighterPrivate::processingFinished()
+{
+    if (m_msgQueue.isEmpty())
+        return;
+
+    sendTopMessage();
+}
+
+void RubocopHighlighterPrivate::sendTopMessage()
+{
+    QTC_CHECK(!m_msgQueue.isEmpty());
+
+    auto msg = m_msgQueue.head();
     initRubocopProcess(msg->args);
     const QByteArray& file = msg->text().toLocal8Bit();
     proc()->write(file.data(), file.length());
+    setBusy(true);
     proc()->closeWriteChannel();
     sendFSMevent(msg->fsmEvent());
 }
@@ -387,7 +409,8 @@ void RubocopHighlighterPrivate::parseDefinitionsJson(const QJsonValue& resp, Mer
 
 void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, MerlinRequestComplete* req)
 {
-    qDebug() << resp;
+    QTC_CHECK(req);
+
     auto root = resp.toObject();
     // ignore context for now
     QTC_CHECK(root.value("entries").isArray());
@@ -400,11 +423,17 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, Mer
         items << item;
     }
 
+
+    if (items.size() == 0) {
+        qDebug() << "Got 0 completions.";
+        qDebug() << root;
+        return;
+    }
     auto prop = new TextEditor::GenericProposal(req->m_oldStartPos, items);
 
     if (req->m_asyncCompletionsAvailableHandler) {
         // call and make empty
-        qDebug() << "calling handler";
+        qDebug() << "calling handler with items.size() = " << items.size();
         req->m_asyncCompletionsAvailableHandler(prop);
         req->m_asyncCompletionsAvailableHandler = [=](TextEditor::IAssistProposal*) { };
     }
@@ -648,6 +677,8 @@ void RubocopHighlighter::finishRuboCopHighlight()
 {
     qDebug() << Q_FUNC_INFO;
     Q_D(RubocopHighlighter);
+
+    //TODO: check the revision
 //    if (m_startRevision != d->document()->document()->revision()) {
 //        d->setBusy(false);
 //        qDebug() << "Document changed, skipping merlin info";
@@ -660,7 +691,17 @@ void RubocopHighlighter::finishRuboCopHighlight()
     QJsonDocument jsonResponse = QJsonDocument::fromJson(d->outBuf().toUtf8());
     d->clearBuf();
 
+#if 0
+    qDebug() << "Queue size before poping: " << d->m_msgQueue.size();
+    for (auto it = d->m_msgQueue.begin(); it != d->m_msgQueue.end(); ++it) {
+        qDebug() << (*it)->expectedState();
+    }
+#endif
     auto lastRequest  = d->m_msgQueue.dequeue();
+#if 0
+    qDebug() << "lastRequest " << lastRequest->expectedState();
+    qDebug() << "Queue size after poping: " << d->m_msgQueue.size();
+#endif
 
     if (jsonResponse.isEmpty())
         return;
@@ -690,7 +731,6 @@ void RubocopHighlighter::finishRuboCopHighlight()
             d->parseOccurencesJson(root.value("value"));
         } else if (d->fsm()->isActive("completionsSent")) {
             d->sendFSMevent("completionsReceived");
-            qDebug() << "toplevel request" << lastRequest->fsmEvent();
             d->parseCompletionsJson(root.value("value"),
                                     dynamic_cast<MerlinRequestComplete*>(lastRequest.data()) );
         } else {
@@ -712,6 +752,7 @@ void RubocopHighlighter::finishRuboCopHighlight()
         qWarning() << "Unknown merlin response class";
     }
     d->setBusy(false);
+    d->processingFinished();
 }
 
 void RubocopHighlighter::generalMsg(const QString &msg) const {

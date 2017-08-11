@@ -65,8 +65,7 @@ TextEditor::IAssistProposal *CompletionAssistProcessor::perform(const TextEditor
                 startPosition,
                 askedLine, askedCol,
                 [this](TextEditor::IAssistProposal *proposal) {
-                    qDebug() << Q_FUNC_INFO;
-                    qDebug() << "proposal size" << proposal->model()->size();
+                    QTC_CHECK(proposal);
                     this->setAsyncProposalAvailable(proposal);
                 } );
 
@@ -97,7 +96,7 @@ int CompletionAssistProcessor::findStartOfName(int pos) const
     // Skip to the start of a name
     do {
         chr = m_interface->characterAt(--pos);
-    } while (isValidIdentifierChar(chr));
+    } while (isValidIdentifierChar(chr) || (chr == '.') );
 
     return pos + 1;
 }
