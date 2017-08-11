@@ -52,17 +52,22 @@ TextEditor::IAssistProposal *CompletionAssistProcessor::perform(const TextEditor
 
     int askedLine, askedCol, prefixLine, prefixCol;
     TextEditor::Convenience::convertPosition(interface->textDocument(), curPosition, &askedLine, &askedCol);
-    const int startPosition = findStartOfName();
+    //const int startPosition = findStartOfName();
+    int startPosition, qtcPos;
+    findPrefixes(-1, startPosition, qtcPos);
     TextEditor::Convenience::convertPosition(interface->textDocument(), startPosition, &prefixLine, &prefixCol);
-    qDebug() << QString("prefix(Line,Col) = (%1, %2)").arg(prefixLine).arg(prefixCol);
+//    qDebug() << QString("prefix(Line,Col) = (%1, %2)").arg(prefixLine).arg(prefixCol);
     // FIXME: We should check the block status in case of multi-line tokens
     const QString prefix =
             interface->textAt(startPosition, curPosition-startPosition);
+//    const QString qtcPrefix =
+//            interface->textAt(qtcPos, curPosition-qtcPos);
+//    qDebug() << QString("QtC prefix = `%1`").arg(qtcPrefix);
 
     RubocopHighlighter::instance()->performCompletion(
                 interface->textDocument(),
                 prefix,
-                startPosition,
+                qtcPos,
                 askedLine, askedCol,
                 [this](TextEditor::IAssistProposal *proposal) {
                     QTC_CHECK(proposal);
@@ -85,6 +90,29 @@ bool isValidFirstIdentifierChar(const QChar &ch)
 bool isValidIdentifierChar(const QChar &ch)
 {
     return isValidFirstIdentifierChar(ch) || ch.isNumber();
+}
+
+void CompletionAssistProcessor::findPrefixes(int pos, int &posMerlin, int &posQtC) const
+{
+    // getting a merlin substring of a format : aaaaa.bbbb.prefixQtC
+    if (pos == -1)
+        pos = m_interface->position();
+    QChar chr;
+    bool stopQtC = false;
+
+    // Skip to the start of a name
+    do {
+        if (!stopQtC) {
+            if (chr == '.') {
+                stopQtC = true;
+                posQtC = pos+1;
+            } else
+                posQtC--;
+        }
+        chr = m_interface->characterAt(--pos);
+    } while (isValidIdentifierChar(chr) || (chr == '.') );
+
+    posMerlin = pos+1;
 }
 
 int CompletionAssistProcessor::findStartOfName(int pos) const

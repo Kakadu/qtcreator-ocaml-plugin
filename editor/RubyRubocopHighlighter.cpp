@@ -421,10 +421,24 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, Mer
 
     QList<TextEditor::AssistProposalItemInterface *> items;
     foreach (auto j, root.value("entries").toArray()) {
-        auto name = j.toObject().value("name").toString();
+        auto obj = j.toObject();
+        auto name = obj.value("name").toString();
         auto item = new TextEditor::AssistProposalItem();
         item->setText(name);
+        QString hint = "";
+        auto descStr = obj.value("desc").toString();
+        if (!descStr.isEmpty())
+            hint = descStr;
+#if 0
+        auto infoStr = obj.value("info").toString();
+        if (!infoStr.isEmpty()) {
+            hint += QChar::LineSeparator;
+            hint += infoStr;
+        }
+#endif
+        item->setDetail(hint);
         items << item;
+
     }
 
 

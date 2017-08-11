@@ -26,6 +26,7 @@ public:
     TextEditor::IAssistProposal *perform(const TextEditor::AssistInterface *interface) override;
 private:
     int findStartOfName(int pos = -1) const;
+    void findPrefixes(int pos, int &posMerlin, int &posQtC) const;
     // In C++ plugin a subclass of AssitInterface is stored
     QScopedPointer<const TextEditor::AssistInterface> m_interface;
 };
