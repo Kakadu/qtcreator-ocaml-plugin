@@ -65,6 +65,8 @@ TextEditor::IAssistProposal *CompletionAssistProcessor::perform(const TextEditor
                 startPosition,
                 askedLine, askedCol,
                 [this](TextEditor::IAssistProposal *proposal) {
+                    qDebug() << Q_FUNC_INFO;
+                    qDebug() << "proposal size" << proposal->model()->size();
                     this->setAsyncProposalAvailable(proposal);
                 } );
 

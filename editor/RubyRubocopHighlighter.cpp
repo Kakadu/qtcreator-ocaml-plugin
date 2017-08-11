@@ -8,6 +8,7 @@
 #include <texteditor/codeassist/iassistproposal.h>
 #include <texteditor/codeassist/assistproposalitem.h>
 
+#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/messagemanager.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/find/searchresultwindow.h>
@@ -18,6 +19,7 @@
 #include "RubyConstants.h"
 #include "MerlinFSM.h"
 
+#include <QtCore/QQueue>
 #include <QDebug>
 #include <QProcess>
 #include <QTextDocument>
@@ -26,20 +28,101 @@
 #include <QTextBlock>
 #include <QJsonDocument>
 
+#include <memory>
+
 namespace OCamlCreator {
 typedef TextEditor::IAssistProcessor::AsyncCompletionsAvailableHandler CompletionsHandler;
 
-struct MerlinRequestBase { };
-struct MerlinRequestErrors : public MerlinRequestBase {
+struct MerlinRequestBase {
+public:
+    MerlinRequestBase(const QStringList& _args) : args(_args) {}
+    virtual ~MerlinRequestBase() {
+        qDebug() << "merlin request destroyed";
+    }
+    virtual const QString fsmEvent() const = 0;
+    virtual const QString expectedState() const = 0;
+    virtual bool isValid() const = 0;
+    virtual const QString text() const = 0;
+
+    // TODO: arguments should be constructed inside every message class
+    QStringList args;
 };
 
-struct MerlinRequestComplete : public MerlinRequestBase {
+struct MerlinRequestQTextDoc : public MerlinRequestBase {
+    MerlinRequestQTextDoc(const QStringList& _args, QTextDocument *_doc)
+        : MerlinRequestBase(_args), doc(_doc), m_startRevision(doc->revision())
+    {}
+    virtual bool isValid() const { return doc!=nullptr; }
+    virtual const QString text() const {
+        return doc->toPlainText();
+    };
+
+private:
+    QTextDocument *doc;
+    int m_startRevision;
+};
+
+struct MerlinRequestComplete : public MerlinRequestQTextDoc
+{
+    MerlinRequestComplete( const QStringList& _args, QTextDocument *_doc
+                         , int pos, const CompletionsHandler& h)
+        : MerlinRequestQTextDoc(_args,_doc)
+        , m_asyncCompletionsAvailableHandler(h), m_oldStartPos(pos)
+    {}
+    const QString fsmEvent() const Q_DECL_OVERRIDE { return "completionsAsked"; }
+    const QString expectedState() const Q_DECL_OVERRIDE { return "completionsReceived"; }
+
     CompletionsHandler m_asyncCompletionsAvailableHandler;
     int m_oldStartPos;
-    MerlinRequestComplete(int pos, const CompletionsHandler& h)
-        : m_asyncCompletionsAvailableHandler(h), m_oldStartPos(pos)
-    {}
 };
+
+struct MerlinRequestQTCDoc : public MerlinRequestBase
+{
+    MerlinRequestQTCDoc(const QStringList& _args, TextEditor::TextDocument *_doc)
+        : MerlinRequestBase(_args), qtcDoc(_doc)
+    {}
+    virtual bool isValid() const override { return qtcDoc != nullptr; }
+    virtual const QString text() const override {
+        return qtcDoc->plainText();
+    };
+    TextEditor::TextDocument *document() { return qtcDoc; }
+private:
+    TextEditor::TextDocument *qtcDoc;
+};
+
+struct MerlinRequestErrors : public MerlinRequestQTCDoc {
+public:
+    MerlinRequestErrors(const QStringList& _args, TextEditor::TextDocument *_doc)
+        : MerlinRequestQTCDoc(_args, _doc)
+    {
+        qDebug() << "Request for asking erros on file" << _doc->filePath();
+    }
+    virtual ~MerlinRequestErrors() {
+        qDebug() << Q_FUNC_INFO << this;
+    }
+
+    const QString fsmEvent() const Q_DECL_OVERRIDE { return "sendCode"; }
+    const QString expectedState() const Q_DECL_OVERRIDE { return "codeSent"; }
+};
+
+struct MerlinRequestUsages : public MerlinRequestQTCDoc {
+public:
+    MerlinRequestUsages(const QStringList& _args, TextEditor::TextDocument *_doc)
+        : MerlinRequestQTCDoc(_args, _doc)
+    {}
+    const QString fsmEvent() const Q_DECL_OVERRIDE { return "occurencesAsked"; }
+    const QString expectedState() const Q_DECL_OVERRIDE { return "occurencesSent"; }
+};
+
+struct MerlinRequestGTD : public MerlinRequestQTCDoc {
+public:
+    MerlinRequestGTD(const QStringList& _args, TextEditor::TextDocument *_doc)
+        : MerlinRequestQTCDoc(_args, _doc)
+    {}
+    const QString fsmEvent() const Q_DECL_OVERRIDE { return "goToDefAsked"; }
+    const QString expectedState() const Q_DECL_OVERRIDE { return "GoToDefSent"; }
+};
+
 
 typedef ProjectExplorer::Task::TaskType TaskType;
 
@@ -107,28 +190,31 @@ public:
     }
 };
 
+typedef  QSharedPointer<MerlinRequestBase> MySharedPtr;
+
 class RubocopHighlighterPrivate
 {
     RubocopHighlighter *q_ptr;
     Q_DECLARE_PUBLIC(RubocopHighlighter)
 public:
-    TextEditor::TextDocument *m_document;
+//    TextEditor::TextDocument *m_document;
     QHash<Utils::FileName, Diagnostics> m_diagnostics;
     QHash<int, QTextCharFormat> m_extraFormats;
     MerlinFSM* m_chart;
     QProcess *m_rubocop;
     bool m_rubocopFound;
     bool m_busy;
+
+    QQueue<QSharedPointer<MerlinRequestBase> > m_msgQueue;
     QString m_outputBuffer;
-    TextEditor::IAssistProcessor::AsyncCompletionsAvailableHandler m_asyncCompletionsAvailableHandler;
-    int m_oldStartPos;
 
 public:
     RubocopHighlighterPrivate(RubocopHighlighter *q) : q_ptr(q)
-      , m_document(nullptr), m_extraFormats()
+//      , m_document(nullptr)
+      , m_extraFormats()
       , m_chart(nullptr), m_rubocop(nullptr)
-      , m_rubocopFound(), m_busy(), m_outputBuffer()
-      , m_asyncCompletionsAvailableHandler(), m_oldStartPos()
+      , m_rubocopFound(), m_busy()
+      , m_msgQueue(), m_outputBuffer()
     {
         QTextCharFormat format;
         format.setUnderlineColor(Qt::darkYellow);
@@ -180,8 +266,8 @@ public:
         }
     }
 
-    TextEditor::TextDocument *document() { return m_document; }
-    TextEditor::TextDocument *doc() { return document(); }
+//    TextEditor::TextDocument *document() { return m_document; }
+//    TextEditor::TextDocument *doc() { return document(); }
     QHash<Utils::FileName, Diagnostics> diags() { return m_diagnostics; }
     MerlinFSM* chart() { return m_chart; }
     MerlinFSM* fsm()   { return chart(); }
@@ -193,11 +279,12 @@ public:
 
     void initRubocopProcess(const QStringList &args);
     void sendFSMevent(const QString&);
-    void parseDiagnosticsJson(const QJsonValue& resp);
-    void parseDefinitionsJson(const QJsonValue& resp);
-    void parseCompletionsJson(const QJsonValue& resp);
-    int lineColumnToPos(const int line, const int column);
+    void parseDiagnosticsJson(const QJsonValue& resp, MerlinRequestErrors *);
+    void parseDefinitionsJson(const QJsonValue& resp, MerlinRequestGTD *);
+    void parseCompletionsJson(const QJsonValue& resp, MerlinRequestComplete* req);
+    int lineColumnToPos(QTextDocument *doc, const int line, const int column);
 
+    void enqueMsg(MerlinRequestBase *msg);
     /* ********************************  search related stuff *****************/
 
     void parseOccurencesJson(const QJsonValue& v) {
@@ -235,20 +322,39 @@ public:
     void processOneSearchResult(Core::SearchResult* search, const Core::Search::TextPosition& pos1, const Core::Search::TextPosition& pos2) {
         QTC_CHECK(pos1.line == pos2.line);
         using namespace Core;
-        auto fileName = document()->filePath().toString();
+//        auto fileName = document()->filePath().toString();
 
-        auto line = document()->document()->findBlockByLineNumber(pos1.line-1).text();
-        search->addResult(fileName, line, Search::TextRange(pos1, pos2) );
+//        auto line = document()->document()->findBlockByLineNumber(pos1.line-1).text();
+//        search->addResult(fileName, line, Search::TextRange(pos1, pos2) );
     }
 
 };
 
-int RubocopHighlighterPrivate::lineColumnToPos(const int line, const int column) {
-    QTextBlock block = m_document->document()->findBlockByLineNumber(line - 1);
+int RubocopHighlighterPrivate::lineColumnToPos(QTextDocument *doc, const int line, const int column) {
+    QTC_CHECK(doc);
+    QTextBlock block = doc->findBlockByLineNumber(line - 1);
     return block.position() + column;
 }
 
-void RubocopHighlighterPrivate::parseDefinitionsJson(const QJsonValue& resp)
+void RubocopHighlighterPrivate::enqueMsg(MerlinRequestBase *msg)
+{
+    m_msgQueue.enqueue( QSharedPointer<MerlinRequestBase>(msg) );
+    if (m_busy) {
+        return;
+    }
+    if (! msg->isValid()) {
+        qWarning() << "we scheduled a merlin request but it is not valid. Skipping";
+        return;
+    }
+    // run request immediately
+    initRubocopProcess(msg->args);
+    const QByteArray& file = msg->text().toLocal8Bit();
+    proc()->write(file.data(), file.length());
+    proc()->closeWriteChannel();
+    sendFSMevent(msg->fsmEvent());
+}
+
+void RubocopHighlighterPrivate::parseDefinitionsJson(const QJsonValue& resp, MerlinRequestGTD*)
 {
     Q_Q(RubocopHighlighter);
     qDebug() << resp;
@@ -279,7 +385,7 @@ void RubocopHighlighterPrivate::parseDefinitionsJson(const QJsonValue& resp)
     }
 }
 
-void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp)
+void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, MerlinRequestComplete* req)
 {
     qDebug() << resp;
     auto root = resp.toObject();
@@ -294,28 +400,36 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp)
         items << item;
     }
 
-    auto prop = new TextEditor::GenericProposal(m_oldStartPos, items);
+    auto prop = new TextEditor::GenericProposal(req->m_oldStartPos, items);
 
-    if (m_asyncCompletionsAvailableHandler) {
+    if (req->m_asyncCompletionsAvailableHandler) {
         // call and make empty
         qDebug() << "calling handler";
-        m_asyncCompletionsAvailableHandler(prop);
-        m_asyncCompletionsAvailableHandler = [=](TextEditor::IAssistProposal*) { };
+        req->m_asyncCompletionsAvailableHandler(prop);
+        req->m_asyncCompletionsAvailableHandler = [=](TextEditor::IAssistProposal*) { };
     }
 }
 
-void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
+void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, MerlinRequestErrors* req)
 {
     Diagnostics diags;
     Offenses offenses;
+    QTC_CHECK(req);
+    auto document = req->document();
     Q_Q(RubocopHighlighter);
     Q_UNUSED(q);
+
+    if (Core::EditorManager::instance()->currentDocument() != req->document()) {
+        qDebug() << "the editor is for another file";
+        return;
+    }
 
     if (!resp.isArray()) {
         qWarning() << "not an array " << resp;
         goto BAD_JSON;
     }
-    diags = m_diagnostics[doc()->filePath()] = Diagnostics();
+
+    diags = m_diagnostics[document->filePath()] = Diagnostics();
     diags.setValid();
 
     foreach (const QJsonValue& v, resp.toArray()) {
@@ -326,8 +440,8 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
         const int col1  = start.value("col").toInt();
         const int line2 = end.value("line").toInt();
         const int col2  = end.value("col").toInt();
-        const int p1 = lineColumnToPos(line1, col1);
-        const int p2 = lineColumnToPos(line2, col2);
+        const int p1 = lineColumnToPos(document->document(), line1, col1);
+        const int p2 = lineColumnToPos(document->document(), line2, col2);
         Range r(line1, col1 + 1,
                 line2, col2 + 1,
                 p1, p2-p1);
@@ -362,14 +476,15 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp)
     {
     RubocopFuture rubocopFuture(offenses);
 
-    TextEditor::SemanticHighlighter::clearExtraAdditionalFormatsUntilEnd(document()->syntaxHighlighter(),
+    TextEditor::SemanticHighlighter::clearExtraAdditionalFormatsUntilEnd(document->syntaxHighlighter(),
                                                                          rubocopFuture.future());
-    TextEditor::SemanticHighlighter::incrementalApplyExtraAdditionalFormats(document()->syntaxHighlighter(),
+    TextEditor::SemanticHighlighter::incrementalApplyExtraAdditionalFormats(document->syntaxHighlighter(),
                                                                             rubocopFuture.future(), 0,
                                                                             offenses.count(), m_extraFormats);
 //    q->generalMsg(QString("Got %1 offenses").arg(offenses.length()));
     }
     return;
+
 BAD_JSON:
     qWarning() << Q_FUNC_INFO;
     qWarning() << "can't parse JSON";
@@ -400,28 +515,25 @@ RubocopHighlighter *RubocopHighlighter::instance()
 
 bool RubocopHighlighter::run(TextEditor::TextDocument *document, const QString &fileNameTip)
 {
-    Q_D(RubocopHighlighter);
 //    if (m_busy || m_rubocop->state() == QProcess::Starting)
 //        return false;
 //    if (!m_rubocopFound)
 //        return true;
 
+    Q_UNUSED(fileNameTip);
 //    m_busy = true;
     m_startRevision = document->document()->revision();
 
     m_timer.start();
-    d->m_document = document;
+//    d->m_document = document;
 
-    const QString filePath = document->filePath().isEmpty()
-            ? fileNameTip
-            : document->filePath().toString();
     /*QJsonArray obj {"tell","start","end","let f x = x let () = ()"};
     QJsonDocument doc(obj);
     QByteArray query(doc.toJson(QJsonDocument::Compact));
     m_rubocop->write(query);
     qDebug () << "query" << obj;*/
 
-    performErrorsCheck( document->contents() );
+    performErrorsCheck( document );
     return true;
 }
 
@@ -444,19 +556,10 @@ void RubocopHighlighter::performGoToDefinition(TextEditor::TextDocument *documen
         return;
 
     Q_D(RubocopHighlighter);
-    if (d->isBusy()) {
-        qWarning() << "TODO: implement queue";
-        return;
-    }
     const QString& pos = QString("%1:%2").arg(line).arg(column);
     auto path = document->filePath().toString();
     QStringList args { "locate", "-position", pos, "-filename", path };
-//    qDebug() << "locating at" << pos;
-    d->initRubocopProcess(args);
-    const QByteArray& file = document->contents();
-    d->proc()->write(file.data(), file.length());
-    d->proc()->closeWriteChannel();
-    d->sendFSMevent("goToDefAsked");
+    d->enqueMsg(new MerlinRequestGTD(args, document) );
 }
 
 void RubocopHighlighter::performFindUsages(TextEditor::TextDocument *document, const int line, const int column)
@@ -465,63 +568,39 @@ void RubocopHighlighter::performFindUsages(TextEditor::TextDocument *document, c
         return;
 
     Q_D(RubocopHighlighter);
-    if (d->isBusy()) {
-        qWarning() << "TODO: implement queue";
-        return;
-    }
     const QString& pos = QString("%1:%2").arg(line).arg(column);
     auto path = document->filePath().toString();
     QStringList args { "occurrences", "-identifier-at", pos/*, "-filename", path*/ };
-    d->initRubocopProcess(args);
-    const QByteArray& file = document->contents();
-    d->proc()->write(file.data(), file.length());
-    d->proc()->closeWriteChannel();
-    d->sendFSMevent("occurencesAsked");
+    d->enqueMsg(new MerlinRequestUsages(args, document) );
 }
 
-void RubocopHighlighter::performErrorsCheck(const QByteArray &file)
+void RubocopHighlighter::performErrorsCheck(TextEditor::TextDocument *doc)
 {
-    if (!Core::EditorManager::instance()->currentDocument())
-        return;
-
     Q_D(RubocopHighlighter);
-    if (d->isBusy()) {
-        qWarning() << "TODO: implement queue";
-        return;
-    }
-    auto path = Core::EditorManager::instance()->currentDocument()->filePath().toString();
-    QStringList args {"errors", "-filename", path };
-    d->initRubocopProcess(args);
-    d->proc()->write(file.data(), file.length());
-    d->proc()->closeWriteChannel();
-    d->sendFSMevent("sendCode");
+    QTC_CHECK(doc);
+    const QString filePath = doc->filePath().isEmpty()
+            ? "*buffer*"
+            : doc->filePath().toString();
+
+//    auto path = Core::EditorManager::instance()->currentDocument()->filePath().toString();
+    QStringList args {"errors" , "-filename", filePath };
+    d->enqueMsg(new MerlinRequestErrors(args, doc) );
 }
 
 void RubocopHighlighter::performCompletion(QTextDocument *doc, const QString& prefix, const int startPos,
            const int line, const int column, const AsyncCompletionsAvailableHandler &handler)
 {
-    Q_UNUSED(doc);
     if (!Core::EditorManager::instance()->currentDocument())
         return;
 
-    Q_D(RubocopHighlighter);
-    if (d->isBusy()) {
-        qWarning() << "TODO: implement queue";
-        return;
-    }
-    d->m_asyncCompletionsAvailableHandler = handler;
-    qDebug() << "start pos = " << startPos;
-    d->m_oldStartPos = startPos;
     const QString& pos = QString("%1:%2").arg(line+1).arg(column);
     QStringList args { "complete-prefix"
                      , "-position", pos
                      , "-prefix", prefix
                      , "-doc", "true"
                      };
-    d->initRubocopProcess(args);
-    d->proc()->write( doc->toPlainText().toLocal8Bit() );
-    d->proc()->closeWriteChannel();
-    d->sendFSMevent("completionsAsked");
+    Q_D(RubocopHighlighter);
+    d->enqueMsg(new MerlinRequestComplete(args, doc, startPos, handler) );
 }
 
 void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
@@ -567,6 +646,7 @@ void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
 
 void RubocopHighlighter::finishRuboCopHighlight()
 {
+    qDebug() << Q_FUNC_INFO;
     Q_D(RubocopHighlighter);
 //    if (m_startRevision != d->document()->document()->revision()) {
 //        d->setBusy(false);
@@ -579,6 +659,8 @@ void RubocopHighlighter::finishRuboCopHighlight()
 
     QJsonDocument jsonResponse = QJsonDocument::fromJson(d->outBuf().toUtf8());
     d->clearBuf();
+
+    auto lastRequest  = d->m_msgQueue.dequeue();
 
     if (jsonResponse.isEmpty())
         return;
@@ -597,16 +679,20 @@ void RubocopHighlighter::finishRuboCopHighlight()
             qDebug() << "Got a result in a state codeSent";
             d->sendFSMevent("diagnosticsReceived");
             qDebug() << "json is " << root;
-            d->parseDiagnosticsJson(root.value("value"));
+            d->parseDiagnosticsJson(root.value("value"),
+                                    dynamic_cast<MerlinRequestErrors*>(lastRequest.data()) );
         } else if (d->fsm()->isActive("GoToDefSent")) {
             d->sendFSMevent("definitionsReceived");
-            d->parseDefinitionsJson(root.value("value"));
+            d->parseDefinitionsJson(root.value("value"),
+                                    dynamic_cast<MerlinRequestGTD*>(lastRequest.data()) );
         } else if (d->fsm()->isActive("occurencesSent")) {
             d->sendFSMevent("occurencesReceived");
             d->parseOccurencesJson(root.value("value"));
         } else if (d->fsm()->isActive("completionsSent")) {
             d->sendFSMevent("completionsReceived");
-            d->parseCompletionsJson(root.value("value"));
+            qDebug() << "toplevel request" << lastRequest->fsmEvent();
+            d->parseCompletionsJson(root.value("value"),
+                                    dynamic_cast<MerlinRequestComplete*>(lastRequest.data()) );
         } else {
             d->sendFSMevent("errorHappend");
             qWarning() << "Got a result but the state is not detectable";
@@ -630,13 +716,6 @@ void RubocopHighlighter::finishRuboCopHighlight()
 
 void RubocopHighlighter::generalMsg(const QString &msg) const {
     Core::MessageManager::instance()->write(msg);
-}
-
-OCamlCreator::Range RubocopHighlighter::lineColumnLengthToRange(int line, int column, int length)
-{
-    Q_D(RubocopHighlighter);
-    uint pos = static_cast<uint>( d->lineColumnToPos(line, column) );
-    return OCamlCreator::Range(pos, length);
 }
 
 }

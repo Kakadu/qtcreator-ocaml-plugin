@@ -1,4 +1,4 @@
-CONFIG += c++11
+CONFIG += c++14
 
 isEmpty(QTC_SOURCE):error(QTC_SOURCE must be set)
 isEmpty(QTC_BUILD):error(QTC_BUILD must be set)

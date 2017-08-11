@@ -5,11 +5,8 @@
 
 #include <utils/fileutils.h>
 
-#include <QObject>
-#include <QFuture>
-#include <QFutureWatcher>
-#include <QElapsedTimer>
-#include <QTemporaryFile>
+#include <QtCore/QObject>
+#include <QtCore/QElapsedTimer>
 
 QT_FORWARD_DECLARE_CLASS(QProcess)
 
@@ -74,7 +71,7 @@ public:
     QString diagnosticAt(const Utils::FileName &file, int pos);
     void performGoToDefinition(TextEditor::TextDocument *document, const int line, const int column);
     void performFindUsages(TextEditor::TextDocument *document, const int line, const int column);
-    void performErrorsCheck(const QByteArray&);
+    void performErrorsCheck(TextEditor::TextDocument*);
 
     using AsyncCompletionsAvailableHandler = std::function<void (TextEditor::IAssistProposal *proposal)>;
     ///
@@ -99,7 +96,6 @@ private:
     void finishRuboCopHighlight();
     Offenses processRubocopOutput();
 
-    Range lineColumnLengthToRange(int line, int column, int length);
     int   lineColumnToPos(const int line, const int column);
     bool isReturnTrue(const QJsonArray& arr);
 
