@@ -290,46 +290,7 @@ public:
 
     /* ********************************  search related stuff *****************/
 
-    void parseOccurencesJson(const QJsonValue& v) {
-        using namespace Core;
-        QJsonArray arr;
-        if (v.isArray())
-            arr = v.toArray();
-        else
-            arr.push_back(v);
-
-        qDebug() << arr;
-
-        SearchResult *search = SearchResultWindow::instance()->startNewSearch
-               (q_ptr->tr("OCaml usages:"),
-                QString(""),
-                "searchTerm",
-                SearchResultWindow::SearchOnly,
-                SearchResultWindow::PreserveCaseEnabled,
-                QLatin1String("OCamlEditor") );
-
-        SearchResultWindow::instance()->popup(IOutputPane::ModeSwitch | IOutputPane::WithFocus);
-
-        foreach (const QJsonValue& v, arr) {
-            const QJsonObject& start = v.toObject().value("start").toObject();
-            const QJsonObject& end = v.toObject().value("end").toObject();
-            const int line1 = start.value("line").toInt();
-            const int col1  = start.value("col").toInt();
-            const int line2 = end.value("line").toInt();
-            const int col2  = end.value("col").toInt();
-
-            processOneSearchResult(search, Search::TextPosition(line1, col1), Search::TextPosition(line2, col2) );
-        }
-    }
-
-    void processOneSearchResult(Core::SearchResult* search, const Core::Search::TextPosition& pos1, const Core::Search::TextPosition& pos2) {
-        QTC_CHECK(pos1.line == pos2.line);
-        using namespace Core;
-//        auto fileName = document()->filePath().toString();
-
-//        auto line = document()->document()->findBlockByLineNumber(pos1.line-1).text();
-//        search->addResult(fileName, line, Search::TextRange(pos1, pos2) );
-    }
+    void parseOccurencesJson(const QJsonValue& v, MerlinRequestUsages* req);
 
 };
 
@@ -374,6 +335,49 @@ void RubocopHighlighterPrivate::sendTopMessage()
     setBusy(true);
     proc()->closeWriteChannel();
     sendFSMevent(msg->fsmEvent());
+}
+
+void RubocopHighlighterPrivate::parseOccurencesJson(const QJsonValue &v, MerlinRequestUsages *req)
+{
+    QTC_CHECK(req);
+    QJsonArray arr;
+    if (v.isArray())
+        arr = v.toArray();
+    else
+        arr.push_back(v);
+
+
+    qDebug() << arr;
+
+    using namespace Core;
+    SearchResult *search = SearchResultWindow::instance()->startNewSearch
+            (q_ptr->tr("OCaml usages:"),
+             QString(""),
+             "searchTerm",
+             SearchResultWindow::SearchOnly,
+             SearchResultWindow::PreserveCaseEnabled,
+             QLatin1String("OCamlEditor") );
+
+    SearchResultWindow::instance()->popup(IOutputPane::ModeSwitch | IOutputPane::WithFocus);
+
+    foreach (const QJsonValue& v, arr) {
+        const QJsonObject& start = v.toObject().value("start").toObject();
+        const QJsonObject& end = v.toObject().value("end").toObject();
+        const int line1 = start.value("line").toInt();
+        const int col1  = start.value("col").toInt();
+        const int line2 = end.value("line").toInt();
+        const int col2  = end.value("col").toInt();
+
+        auto pos1 = Search::TextPosition(line1, col1);
+        auto pos2 = Search::TextPosition(line2, col2);
+        // Maybe this check is wrong
+        QTC_CHECK(line1 == line2);
+
+        auto fileName = req->document()->filePath().toString();
+
+        auto line = req->document()->document()->findBlockByLineNumber(pos1.line-1).text();
+        search->addResult(fileName, line, Search::TextRange(pos1, pos2) );
+    }
 }
 
 void RubocopHighlighterPrivate::parseDefinitionsJson(const QJsonValue& resp, MerlinRequestGTD*)
@@ -728,7 +732,8 @@ void RubocopHighlighter::finishRuboCopHighlight()
                                     dynamic_cast<MerlinRequestGTD*>(lastRequest.data()) );
         } else if (d->fsm()->isActive("occurencesSent")) {
             d->sendFSMevent("occurencesReceived");
-            d->parseOccurencesJson(root.value("value"));
+            d->parseOccurencesJson(root.value("value"),
+                                   dynamic_cast<MerlinRequestUsages*>(lastRequest.data()));
         } else if (d->fsm()->isActive("completionsSent")) {
             d->sendFSMevent("completionsReceived");
             d->parseCompletionsJson(root.value("value"),
