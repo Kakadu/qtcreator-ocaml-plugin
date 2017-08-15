@@ -59,24 +59,20 @@ EditorWidget::~EditorWidget()
     delete m_ambigousMethodAssistProvider;
 }
 
-TextEditor::TextEditorWidget::Link EditorWidget::findLinkAt(const QTextCursor &cursor, bool, bool inNextSplit)
+void EditorWidget::openLinkUnderCursor()
 {
-    Q_UNUSED(inNextSplit);
-    /* Hack here. QtCreator API doesn't support asynchornous finding links (yet).
-     * See TextEditorWidget::openLinkUnderCursor implementation
-     * So, we should return empty link here but schedule request to merlin.
-     * The problem will be that all calls to findLinkAt will cause triggering of
-     * go-to-definition request.
-     */
-    QString text = cursor.block().text();
+    // There we added virtual declaration to the QtC sources to be able to override
+    const bool openInNextSplit = alwaysOpenLinksInNextSplit();
+    QString text = textCursor().block().text();
     if (text.isEmpty())
-        return Link();
+        return ;
 
-    const QTextBlock block = cursor.block();
+    const QTextBlock block = textCursor().block();
     const int line = block.blockNumber() + 1;
-    const int column = cursor.position() - block.position();
+    const int column = textCursor().position() - block.position();
+    //TODO: pass openInNextSplit
+    Q_UNUSED(openInNextSplit);
     RubocopHighlighter::instance()->performGoToDefinition(textDocument(), line, column);
-    return Link();
 }
 
 void EditorWidget::unCommentSelection()

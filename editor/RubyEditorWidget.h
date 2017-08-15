@@ -25,6 +25,7 @@ public:
     void aboutToOpen(const QString &fileName, const QString &realFileName) override;
     void findUsages();
 
+    virtual void openLinkUnderCursor();
 protected:
     void finalizeInitialization() override;
     void contextMenuEvent(QContextMenuEvent *) override;
