@@ -198,6 +198,7 @@ MerlinQuickFix::MerlinQuickFix(const MerlinQuickFix &z)
     , new_values(z.new_values)
     //, old_ident(z.old_ident)
 {
+    qDebug() << Q_FUNC_INFO << z.new_values;
 }
 
 
@@ -207,7 +208,7 @@ class RubocopHighlighterPrivate
     Q_DECLARE_PUBLIC(RubocopHighlighter)
 public:
     QHash<Utils::FileName, Diagnostics> m_diagnostics;
-    QHash<Utils::FileName, QVector<QSharedPointer<MerlinQuickFix> > > m_quickFixes;
+    QHash<Utils::FileName, QVector<MerlinQuickFix> > m_quickFixes;
     QHash<int, QTextCharFormat> m_extraFormats;
     MerlinFSM* m_chart;
     QProcess *m_rubocop;
@@ -482,6 +483,11 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
     Q_Q(RubocopHighlighter);
     Q_UNUSED(q);
 
+    auto error = []() {
+        qWarning() << Q_FUNC_INFO;
+        qWarning() << "can't parse JSON";
+    };
+
     if (Core::EditorManager::instance()->currentDocument() != req->document()) {
         qDebug() << "the editor is for another file";
         return;
@@ -498,29 +504,34 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
         qfArr = o.value("quickfixes").toArray();
     } else {
         qWarning() << "bad format" << resp;
-        goto BAD_JSON;
+        error();
+        return;
     }
 
-    auto curQf = m_quickFixes[document->filePath()];
+    QVector<MerlinQuickFix> curQf;
 
     curQf.clear();
+
     foreach (auto v, qfArr) {
         auto vo = v.toObject();
-        auto qf = QSharedPointer<MerlinQuickFix>::create();
-        jsonParseStartEnd(vo, qf->line1, qf->col1, qf->line2, qf->col2);
+        auto qf = MerlinQuickFix();
+        jsonParseStartEnd(vo, qf.line1, qf.col1, qf.line2, qf.col2);
 
         QTC_CHECK(vo.value("suggs").isArray() );
         foreach (auto s, vo.value("suggs").toArray()) {
-            qf->new_values << s.toString();
+            qf.new_values << s.toString();
         }
+
+        qf.startPos = lineColumnToPos(req->document()->document(), qf.line1, qf.col1);
+        qf.endPos   = lineColumnToPos(req->document()->document(), qf.line2, qf.col2);
         curQf.append(qf);
     }
-    qDebug() << "got quickfixes:" << curQf.length();
+    //qDebug() << "got quickfixes:" << curQf.length() << "for path" << document->filePath();
+    m_quickFixes[document->filePath()] = curQf;
 
     diags = m_diagnostics[document->filePath()] = Diagnostics();
     diags.setValid();
     foreach (const QJsonValue& v, errorsArr) {
-        //qDebug() << "diagnostic " << v;
         const QJsonObject& start = v.toObject().value("start").toObject();
         const QJsonObject& end = v.toObject().value("end").toObject();
         const int line1 = start.value("line").toInt();
@@ -570,11 +581,6 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
                                                                             offenses.count(), m_extraFormats);
 //    q->generalMsg(QString("Got %1 offenses").arg(offenses.length()));
     }
-    return;
-
-BAD_JSON:
-    qWarning() << Q_FUNC_INFO;
-    qWarning() << "can't parse JSON";
 }
 
 void RubocopHighlighterPrivate::sendFSMevent(const QString &s)
@@ -691,7 +697,7 @@ void RubocopHighlighter::performCompletion(QTextDocument *doc, const QString& pr
 }
 
 void OCamlCreator::RubocopHighlighter::enumerateQuickFixes(const TextEditor::QuickFixInterface &iface,
-              const  std::function<void(const QSharedPointer<MerlinQuickFix>)> &hook)
+              const std::function<void(const MerlinQuickFix&)> &hook)
 {
     Q_D(RubocopHighlighter);
     // we should find all quickfixes such that current cursor position is between
@@ -699,11 +705,17 @@ void OCamlCreator::RubocopHighlighter::enumerateQuickFixes(const TextEditor::Qui
 
     const int curPos = iface->position();
     // TODO: get path somewhere; WTF
-    foreach (auto qf, d->m_quickFixes) {
-        auto qfStartPos = d->lineColumnToPos(iface->textDocument(), qf->line1, qf->col1);
+    auto path = iface->fileName();
+//    qDebug() << "path = " << path;
+//    qDebug() << d->m_quickFixes.keys();
+//    qDebug() << "Utils::FileName::fromString(path) = " << Utils::FileName::fromString(path);
+    foreach (auto qf, d->m_quickFixes[Utils::FileName::fromString(path)]) {
+//        qDebug() << __FILE__ << __LINE__;
+        auto qfStartPos = d->lineColumnToPos(iface->textDocument(), qf.line1, qf.col1);
         // TODO: Dirty hack. Support multiline idents
-        auto qfEndPos   = qf->col2 - qf->col1 + qfStartPos;
-        if (curPos >= qfStartPos && curPos < qfEndPos)
+        auto qfEndPos   = qf.col2 - qf.col1 + qfStartPos;
+        qDebug() << qfStartPos << curPos << qfEndPos;
+        if (curPos >= qfStartPos && curPos <= qfEndPos)
             hook(qf);
     }
 }

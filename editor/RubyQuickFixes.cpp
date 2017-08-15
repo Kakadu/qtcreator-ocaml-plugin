@@ -11,6 +11,7 @@ namespace OCamlCreator {
 void registerQuickFixes(ExtensionSystem::IPlugin *plugIn)
 {
     plugIn->addAutoReleasedObject(new SwitchStringQuotes);
+    plugIn->addAutoReleasedObject(new RenameHintFixFactory);
 }
 
 void SwitchStringQuotes::matchingOperations(const TextEditor::QuickFixInterface &interface, TextEditor::QuickFixOperations &result)
@@ -67,29 +68,32 @@ void SwitchStringQuotesOp::perform()
 void RenameHintFixFactory::matchingOperations(const TextEditor::QuickFixInterface &iface,
                                               TextEditor::QuickFixOperations & rez)
 {
-    auto hook = [&rez, &iface](const QSharedPointer<MerlinQuickFix>& qf) {
+    auto hook = [&rez, &iface](const MerlinQuickFix& qf) {
+        //qDebug() << "Got a QF with " << qf.new_values.size() << "elems";
         QTextBlock block = iface->textDocument()->findBlock(iface->position());
-        foreach (auto s, qf->new_values)
+        foreach (auto s, qf.new_values)
             rez << QSharedPointer<RenameHintFixOp>::create(block, qf, s);
     };
 
     RubocopHighlighter::instance()->enumerateQuickFixes(iface, hook);
 }
 
-RenameHintFixOp::RenameHintFixOp(QTextBlock &block, const MerlinQuickFix::Ptr &qf, const QString &s)
-    : m_block(block), m_qf(qf), new_val(s)
+RenameHintFixOp::RenameHintFixOp(QTextBlock &block, const MerlinQuickFix &qf, const QString &s)
+    : m_block(block), m_qf(qf), m_newVal(s)
 {
+    qDebug() << Q_FUNC_INFO;
 }
 
 void RenameHintFixOp::perform()
 {
     int bp = m_block.position();
+    qDebug() << m_qf;
     QTextCursor cursor(m_block);
     cursor.beginEditBlock();
-    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, m_qf->startPos - bp);
-    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, m_qf->col2 - m_qf->line2 );
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, m_qf.startPos - bp);
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, m_qf.col2 - m_qf.col1 );
     cursor.removeSelectedText();
-    cursor.insertText(new_val);
+    cursor.insertText(m_newVal);
     cursor.endEditBlock();
 }
 

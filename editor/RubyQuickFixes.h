@@ -32,7 +32,7 @@ private:
     int m_userCursorPosition;
 };
 
-class RenameHintFixFactory : public TextEditor::QuickFixFactory
+class RenameHintFixFactory : public QuickFixFactory
 {
     Q_OBJECT
 public:
@@ -41,12 +41,16 @@ public:
 
 class RenameHintFixOp : public TextEditor::QuickFixOperation {
 public:
-    RenameHintFixOp(QTextBlock &block, const MerlinQuickFix::Ptr &, const QString &new_val);
+    RenameHintFixOp(QTextBlock &block, const MerlinQuickFix&, const QString &new_val);
     void perform() override;
+    QString description() const Q_DECL_OVERRIDE {
+        return m_newVal;
+    }
+
 private:
     QTextBlock m_block;
-    MerlinQuickFix::Ptr m_qf;
-    QString new_val;
+    MerlinQuickFix m_qf;
+    QString m_newVal;
 };
 
 }

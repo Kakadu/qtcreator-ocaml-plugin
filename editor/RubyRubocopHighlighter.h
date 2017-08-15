@@ -60,8 +60,6 @@ typedef TextEditor::HighlightingResult Offense;
 typedef QVector<TextEditor::HighlightingResult> Offenses;
 
 struct MerlinQuickFix {
-    typedef QSharedPointer<MerlinQuickFix> Ptr;
-
     int line1;
     int col1;
     int line2;
@@ -80,7 +78,15 @@ struct MerlinQuickFix {
     }
     MerlinQuickFix() {}
     MerlinQuickFix(const MerlinQuickFix& );
+
+    operator QString() const {
+        return
+          QString("from %1:%2 to %3:%4").arg(line1).arg(col1).arg(line2).arg(col2) +
+          QString(" new vals: %1").arg(new_values.join(" "));
+    }
+
 };
+
 
 class RubocopHighlighterPrivate;
 
@@ -116,7 +122,7 @@ public:
     //TODO: doc may be unused
 
     void enumerateQuickFixes(const TextEditor::QuickFixInterface &iface,
-                             const std::function<void(const QSharedPointer<MerlinQuickFix>)> &hook);
+                             const std::function<void(const MerlinQuickFix&)> &hook);
 private:
     int m_startRevision;
 
