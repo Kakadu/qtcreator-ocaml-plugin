@@ -7,6 +7,7 @@
 #include <texteditor/quickfix.h>
 
 #include "RubyScanner.h"
+#include "RubyRubocopHighlighter.h"
 
 namespace OCamlCreator {
 
@@ -30,6 +31,24 @@ private:
     Token m_token;
     int m_userCursorPosition;
 };
+
+class RenameHintFixFactory : public TextEditor::QuickFixFactory
+{
+    Q_OBJECT
+public:
+    void matchingOperations(const TextEditor::QuickFixInterface &, TextEditor::QuickFixOperations &) override;
+};
+
+class RenameHintFixOp : public TextEditor::QuickFixOperation {
+public:
+    RenameHintFixOp(QTextBlock &block, const MerlinQuickFix::Ptr &, const QString &new_val);
+    void perform() override;
+private:
+    QTextBlock m_block;
+    MerlinQuickFix::Ptr m_qf;
+    QString new_val;
+};
+
 }
 
 #endif

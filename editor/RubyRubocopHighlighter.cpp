@@ -28,8 +28,6 @@
 #include <QTextBlock>
 #include <QJsonDocument>
 
-#include <memory>
-
 namespace OCamlCreator {
 typedef TextEditor::IAssistProcessor::AsyncCompletionsAvailableHandler CompletionsHandler;
 
@@ -192,13 +190,24 @@ public:
 
 typedef  QSharedPointer<MerlinRequestBase> MySharedPtr;
 
+
+MerlinQuickFix::MerlinQuickFix(const MerlinQuickFix &z)
+    : line1(z.line1), col1(z.col1)
+    , line2(z.line2), col2(z.col2)
+    , startPos(z.startPos), endPos(z.startPos)
+    , new_values(z.new_values)
+    //, old_ident(z.old_ident)
+{
+}
+
+
 class RubocopHighlighterPrivate
 {
     RubocopHighlighter *q_ptr;
     Q_DECLARE_PUBLIC(RubocopHighlighter)
 public:
-//    TextEditor::TextDocument *m_document;
     QHash<Utils::FileName, Diagnostics> m_diagnostics;
+    QHash<Utils::FileName, QVector<QSharedPointer<MerlinQuickFix> > > m_quickFixes;
     QHash<int, QTextCharFormat> m_extraFormats;
     MerlinFSM* m_chart;
     QProcess *m_rubocop;
@@ -210,7 +219,7 @@ public:
 
 public:
     RubocopHighlighterPrivate(RubocopHighlighter *q) : q_ptr(q)
-//      , m_document(nullptr)
+      , m_diagnostics(), m_quickFixes()
       , m_extraFormats()
       , m_chart(nullptr), m_rubocop(nullptr)
       , m_rubocopFound(), m_busy()
@@ -266,8 +275,6 @@ public:
         }
     }
 
-//    TextEditor::TextDocument *document() { return m_document; }
-//    TextEditor::TextDocument *doc() { return document(); }
     QHash<Utils::FileName, Diagnostics> diags() { return m_diagnostics; }
     MerlinFSM* chart() { return m_chart; }
     MerlinFSM* fsm()   { return chart(); }
@@ -457,6 +464,15 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, Mer
     }
 }
 
+void jsonParseStartEnd(const QJsonObject& o, int& line1, int& col1, int& line2, int&col2) {
+    const QJsonObject& start = o.value("start").toObject();
+    const QJsonObject& end   = o.value("end").toObject();
+    line1 = start.value("line").toInt();
+    col1  = start.value("col").toInt();
+    line2 = end.value("line").toInt();
+    col2  = end.value("col").toInt();
+}
+
 void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, MerlinRequestErrors* req)
 {
     Diagnostics diags;
@@ -471,15 +487,39 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
         return;
     }
 
-    if (!resp.isArray()) {
-        qWarning() << "not an array " << resp;
+    QJsonArray errorsArr;
+    QJsonArray qfArr;
+    if (resp.isArray()) {
+        errorsArr = resp.toArray();
+    } else if (resp.isObject()) {
+        auto o = resp.toObject();
+        QTC_CHECK(o.value("errors").isArray());
+        errorsArr = o.value("errors").toArray();
+        qfArr = o.value("quickfixes").toArray();
+    } else {
+        qWarning() << "bad format" << resp;
         goto BAD_JSON;
     }
 
+    auto curQf = m_quickFixes[document->filePath()];
+
+    curQf.clear();
+    foreach (auto v, qfArr) {
+        auto vo = v.toObject();
+        auto qf = QSharedPointer<MerlinQuickFix>::create();
+        jsonParseStartEnd(vo, qf->line1, qf->col1, qf->line2, qf->col2);
+
+        QTC_CHECK(vo.value("suggs").isArray() );
+        foreach (auto s, vo.value("suggs").toArray()) {
+            qf->new_values << s.toString();
+        }
+        curQf.append(qf);
+    }
+    qDebug() << "got quickfixes:" << curQf.length();
+
     diags = m_diagnostics[document->filePath()] = Diagnostics();
     diags.setValid();
-
-    foreach (const QJsonValue& v, resp.toArray()) {
+    foreach (const QJsonValue& v, errorsArr) {
         //qDebug() << "diagnostic " << v;
         const QJsonObject& start = v.toObject().value("start").toObject();
         const QJsonObject& end = v.toObject().value("end").toObject();
@@ -650,6 +690,24 @@ void RubocopHighlighter::performCompletion(QTextDocument *doc, const QString& pr
     d->enqueMsg(new MerlinRequestComplete(args, doc, startPos, handler) );
 }
 
+void OCamlCreator::RubocopHighlighter::enumerateQuickFixes(const TextEditor::QuickFixInterface &iface,
+              const  std::function<void(const QSharedPointer<MerlinQuickFix>)> &hook)
+{
+    Q_D(RubocopHighlighter);
+    // we should find all quickfixes such that current cursor position is between
+    // begin and end of the quickFixItem
+
+    const int curPos = iface->position();
+    // TODO: get path somewhere; WTF
+    foreach (auto qf, d->m_quickFixes) {
+        auto qfStartPos = d->lineColumnToPos(iface->textDocument(), qf->line1, qf->col1);
+        // TODO: Dirty hack. Support multiline idents
+        auto qfEndPos   = qf->col2 - qf->col1 + qfStartPos;
+        if (curPos >= qfStartPos && curPos < qfEndPos)
+            hook(qf);
+    }
+}
+
 void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
 {
 //    qDebug() << "init process for a single message";
@@ -709,17 +767,17 @@ void RubocopHighlighter::finishRuboCopHighlight()
     QJsonDocument jsonResponse = QJsonDocument::fromJson(d->outBuf().toUtf8());
     d->clearBuf();
 
-#if 0
-    qDebug() << "Queue size before poping: " << d->m_msgQueue.size();
-    for (auto it = d->m_msgQueue.begin(); it != d->m_msgQueue.end(); ++it) {
-        qDebug() << (*it)->expectedState();
-    }
-#endif
+//#if 0
+//    qDebug() << "Queue size before poping: " << d->m_msgQueue.size();
+//    for (auto it = d->m_msgQueue.begin(); it != d->m_msgQueue.end(); ++it) {
+//        qDebug() << (*it)->expectedState();
+//    }
+//#endif
     auto lastRequest  = d->m_msgQueue.dequeue();
-#if 0
-    qDebug() << "lastRequest " << lastRequest->expectedState();
-    qDebug() << "Queue size after poping: " << d->m_msgQueue.size();
-#endif
+//#if 0
+//    qDebug() << "lastRequest " << lastRequest->expectedState();
+//    qDebug() << "Queue size after poping: " << d->m_msgQueue.size();
+//#endif
 
     if (jsonResponse.isEmpty())
         return;

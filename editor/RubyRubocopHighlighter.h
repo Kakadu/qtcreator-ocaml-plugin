@@ -2,6 +2,7 @@
 #define Ruby_RubocopHighlighter_h
 
 #include <texteditor/semantichighlighter.h>
+#include <texteditor/quickfix.h> // can't use forward declarations because of typedef's and inner classes
 
 #include <utils/fileutils.h>
 
@@ -10,7 +11,10 @@
 
 QT_FORWARD_DECLARE_CLASS(QProcess)
 
-namespace TextEditor { class TextDocument; class IAssistProcessor; class IAssistProposal; }
+namespace TextEditor {
+    class TextDocument; class IAssistProcessor; class IAssistProposal;
+    class AssistInterface;
+}
 
 namespace OCamlCreator {
 
@@ -55,6 +59,29 @@ public:
 typedef TextEditor::HighlightingResult Offense;
 typedef QVector<TextEditor::HighlightingResult> Offenses;
 
+struct MerlinQuickFix {
+    typedef QSharedPointer<MerlinQuickFix> Ptr;
+
+    int line1;
+    int col1;
+    int line2;
+    int col2;
+    int startPos;
+    int endPos;
+    QStringList new_values;
+//    QString old_ident;
+
+    MerlinQuickFix(int _line, int _col, const QStringList& _ss, const QString& _old)
+        : line1(_line), col1(_col), startPos(), endPos()
+        , new_values(_ss)
+        //, old_ident(_old)
+    {
+        Q_UNUSED(_old);
+    }
+    MerlinQuickFix() {}
+    MerlinQuickFix(const MerlinQuickFix& );
+};
+
 class RubocopHighlighterPrivate;
 
 class RubocopHighlighter : public QObject {
@@ -73,7 +100,7 @@ public:
     void performFindUsages(TextEditor::TextDocument *document, const int line, const int column);
     void performErrorsCheck(TextEditor::TextDocument*);
 
-    using AsyncCompletionsAvailableHandler = std::function<void (TextEditor::IAssistProposal *proposal)>;
+    using AsyncCompletionsAvailableHandler = std::function<void (TextEditor::IAssistProposal *)>;
     ///
     /// \brief performCompletion
     /// \param doc is the document where text belongs
@@ -88,6 +115,8 @@ public:
                            );
     //TODO: doc may be unused
 
+    void enumerateQuickFixes(const TextEditor::QuickFixInterface &iface,
+                             const std::function<void(const QSharedPointer<MerlinQuickFix>)> &hook);
 private:
     int m_startRevision;
 

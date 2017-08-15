@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "RubyScanner.h"
+#include "RubyRubocopHighlighter.h"
 
 namespace OCamlCreator {
 void registerQuickFixes(ExtensionSystem::IPlugin *plugIn)
@@ -41,6 +42,7 @@ SwitchStringQuotesOp::SwitchStringQuotesOp(QTextBlock &block, const Token &token
 
 void SwitchStringQuotesOp::perform()
 {
+    qDebug() << Q_FUNC_INFO;
     QString string = m_block.text().mid(m_token.position, m_token.length);
 
     QString oldQuote = "\"";
@@ -59,6 +61,35 @@ void SwitchStringQuotesOp::perform()
     cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, m_token.length);
     cursor.removeSelectedText();
     cursor.insertText(string);
+    cursor.endEditBlock();
+}
+
+void RenameHintFixFactory::matchingOperations(const TextEditor::QuickFixInterface &iface,
+                                              TextEditor::QuickFixOperations & rez)
+{
+    auto hook = [&rez, &iface](const QSharedPointer<MerlinQuickFix>& qf) {
+        QTextBlock block = iface->textDocument()->findBlock(iface->position());
+        foreach (auto s, qf->new_values)
+            rez << QSharedPointer<RenameHintFixOp>::create(block, qf, s);
+    };
+
+    RubocopHighlighter::instance()->enumerateQuickFixes(iface, hook);
+}
+
+RenameHintFixOp::RenameHintFixOp(QTextBlock &block, const MerlinQuickFix::Ptr &qf, const QString &s)
+    : m_block(block), m_qf(qf), new_val(s)
+{
+}
+
+void RenameHintFixOp::perform()
+{
+    int bp = m_block.position();
+    QTextCursor cursor(m_block);
+    cursor.beginEditBlock();
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, m_qf->startPos - bp);
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, m_qf->col2 - m_qf->line2 );
+    cursor.removeSelectedText();
+    cursor.insertText(new_val);
     cursor.endEditBlock();
 }
 
