@@ -81,13 +81,12 @@ void RenameHintFixFactory::matchingOperations(const TextEditor::QuickFixInterfac
 RenameHintFixOp::RenameHintFixOp(QTextBlock &block, const MerlinQuickFix &qf, const QString &s)
     : m_block(block), m_qf(qf), m_newVal(s)
 {
-    qDebug() << Q_FUNC_INFO;
+
 }
 
 void RenameHintFixOp::perform()
 {
-    int bp = m_block.position();
-    qDebug() << m_qf;
+    const int bp = m_block.position();
     QTextCursor cursor(m_block);
     cursor.beginEditBlock();
     cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, m_qf.startPos - bp);

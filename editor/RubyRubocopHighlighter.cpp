@@ -28,14 +28,16 @@
 #include <QTextBlock>
 #include <QJsonDocument>
 
-namespace OCamlCreator {
+namespace OCamlCreator
+{
+void jsonParseStartEnd(const QJsonObject& o, int& line1, int& col1, int& line2, int& col2);
 typedef TextEditor::IAssistProcessor::AsyncCompletionsAvailableHandler CompletionsHandler;
 
 struct MerlinRequestBase {
 public:
     MerlinRequestBase(const QStringList& _args) : args(_args) {}
     virtual ~MerlinRequestBase() {
-        qDebug() << "merlin request destroyed";
+        //qDebug() << "merlin request destroyed";
     }
     virtual const QString fsmEvent() const = 0;
     virtual const QString expectedState() const = 0;
@@ -93,10 +95,10 @@ public:
     MerlinRequestErrors(const QStringList& _args, TextEditor::TextDocument *_doc)
         : MerlinRequestQTCDoc(_args, _doc)
     {
-        qDebug() << "Request for asking erros on file" << _doc->filePath();
+        //qDebug() << "Request for asking erros on file" << _doc->filePath();
     }
     virtual ~MerlinRequestErrors() {
-        qDebug() << Q_FUNC_INFO << this;
+        //qDebug() << Q_FUNC_INFO << this;
     }
 
     const QString fsmEvent() const Q_DECL_OVERRIDE { return "sendCode"; }
@@ -196,9 +198,7 @@ MerlinQuickFix::MerlinQuickFix(const MerlinQuickFix &z)
     , line2(z.line2), col2(z.col2)
     , startPos(z.startPos), endPos(z.startPos)
     , new_values(z.new_values)
-    //, old_ident(z.old_ident)
 {
-    qDebug() << Q_FUNC_INFO << z.new_values;
 }
 
 
@@ -424,7 +424,6 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, Mer
     QTC_CHECK(req);
 
     auto root = resp.toObject();
-    // ignore context for now
     QTC_CHECK(root.value("entries").isArray());
 
     QList<TextEditor::AssistProposalItemInterface *> items;
@@ -437,6 +436,8 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, Mer
         auto descStr = obj.value("desc").toString();
         if (!descStr.isEmpty())
             hint = descStr;
+
+        // info is commented out because tooltips doesn't support multiline strings
 #if 0
         auto infoStr = obj.value("info").toString();
         if (!infoStr.isEmpty()) {
@@ -446,32 +447,21 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, Mer
 #endif
         item->setDetail(hint);
         items << item;
-
     }
-
 
     if (items.size() == 0) {
         qDebug() << "Got 0 completions.";
-        qDebug() << root;
+//        qDebug() << root;
         return;
     }
     auto prop = new TextEditor::GenericProposal(req->m_oldStartPos, items);
 
     if (req->m_asyncCompletionsAvailableHandler) {
         // call and make empty
-        qDebug() << "calling handler with items.size() = " << items.size();
+        // qDebug() << "calling handler with items.size() = " << items.size();
         req->m_asyncCompletionsAvailableHandler(prop);
         req->m_asyncCompletionsAvailableHandler = [=](TextEditor::IAssistProposal*) { };
     }
-}
-
-void jsonParseStartEnd(const QJsonObject& o, int& line1, int& col1, int& line2, int&col2) {
-    const QJsonObject& start = o.value("start").toObject();
-    const QJsonObject& end   = o.value("end").toObject();
-    line1 = start.value("line").toInt();
-    col1  = start.value("col").toInt();
-    line2 = end.value("line").toInt();
-    col2  = end.value("col").toInt();
 }
 
 void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, MerlinRequestErrors* req)
@@ -508,44 +498,38 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
         return;
     }
 
-    QVector<MerlinQuickFix> curQf;
+    {
+        QVector<MerlinQuickFix> curQf;
+        foreach (auto v, qfArr) {
+            auto vo = v.toObject();
+            auto qf = MerlinQuickFix();
+            jsonParseStartEnd(vo, qf.line1, qf.col1, qf.line2, qf.col2);
 
-    curQf.clear();
+            QTC_CHECK(vo.value("suggs").isArray() );
+            foreach (auto s, vo.value("suggs").toArray()) {
+                qf.new_values << s.toString();
+            }
 
-    foreach (auto v, qfArr) {
-        auto vo = v.toObject();
-        auto qf = MerlinQuickFix();
-        jsonParseStartEnd(vo, qf.line1, qf.col1, qf.line2, qf.col2);
-
-        QTC_CHECK(vo.value("suggs").isArray() );
-        foreach (auto s, vo.value("suggs").toArray()) {
-            qf.new_values << s.toString();
+            qf.startPos = lineColumnToPos(req->document()->document(), qf.line1, qf.col1);
+            qf.endPos   = lineColumnToPos(req->document()->document(), qf.line2, qf.col2);
+            curQf.append(qf);
         }
-
-        qf.startPos = lineColumnToPos(req->document()->document(), qf.line1, qf.col1);
-        qf.endPos   = lineColumnToPos(req->document()->document(), qf.line2, qf.col2);
-        curQf.append(qf);
+        m_quickFixes[document->filePath()] = curQf;
     }
-    //qDebug() << "got quickfixes:" << curQf.length() << "for path" << document->filePath();
-    m_quickFixes[document->filePath()] = curQf;
 
     diags = m_diagnostics[document->filePath()] = Diagnostics();
     diags.setValid();
     foreach (const QJsonValue& v, errorsArr) {
-        const QJsonObject& start = v.toObject().value("start").toObject();
-        const QJsonObject& end = v.toObject().value("end").toObject();
-        const int line1 = start.value("line").toInt();
-        const int col1  = start.value("col").toInt();
-        const int line2 = end.value("line").toInt();
-        const int col2  = end.value("col").toInt();
-        const int p1 = lineColumnToPos(document->document(), line1, col1);
-        const int p2 = lineColumnToPos(document->document(), line2, col2);
-        Range r(line1, col1 + 1,
-                line2, col2 + 1,
-                p1, p2-p1);
+        const auto vo = v.toObject();
+        Range r;
+        jsonParseStartEnd(vo, r.startLine, r.startCol, r.endLine, r.endCol);
 
-        const QString& msg = v.toObject().value("message").toString();
-        const QString& typStr = v.toObject().value("type").toString();
+        r.pos = lineColumnToPos(document->document(), r.startLine, r.startCol);
+        const int pos2 = lineColumnToPos(document->document(), r.endLine, r.endCol);
+        r.length = pos2 - r.pos;
+
+        const QString& msg = vo.value("message").toString();
+        const QString& typStr = vo.value("type").toString();
         TaskType taskTyp = ProjectExplorer::Task::Unknown;
         if (typStr == "error")
             taskTyp = ProjectExplorer::Task::Error;
@@ -560,7 +544,7 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
         // TODO: response contains filed valid: bool
         // but it seems not important
     }
-    qDebug() << "got " << diags.messages.count() << "diagnostics";
+
     // now we convert parsed diagnostics to editor's highlighting regions
     // and add tasks to the TaskHub (Issues bottom pane)
     ProjectExplorer::TaskHub::clearTasks(Constants::TASK_CATEGORY_MERLIN_COMPILE);
@@ -573,7 +557,7 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
                                      document->filePath(),
                                      r.startLine
                                      );
-
+        // tasks doesn't support specifying column. Maybe create a PR?
     }
     {
     RubocopFuture rubocopFuture(offenses);
@@ -589,8 +573,8 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
 
 void RubocopHighlighterPrivate::sendFSMevent(const QString &s)
 {
-    qDebug() << QString("Sending event '%1' when current states are ").arg(s)
-             << chart()->activeStateNames(true);
+//    qDebug() << QString("Sending event '%1' when current states are ").arg(s)
+//             << chart()->activeStateNames(true);
     chart()->submitEvent(s);
 }
 
@@ -708,17 +692,13 @@ void OCamlCreator::RubocopHighlighter::enumerateQuickFixes(const TextEditor::Qui
     // begin and end of the quickFixItem
 
     const int curPos = iface->position();
-    // TODO: get path somewhere; WTF
     auto path = iface->fileName();
-//    qDebug() << "path = " << path;
-//    qDebug() << d->m_quickFixes.keys();
-//    qDebug() << "Utils::FileName::fromString(path) = " << Utils::FileName::fromString(path);
+    // iface->fileName() actually contains full path
+
     foreach (auto qf, d->m_quickFixes[Utils::FileName::fromString(path)]) {
-//        qDebug() << __FILE__ << __LINE__;
         auto qfStartPos = d->lineColumnToPos(iface->textDocument(), qf.line1, qf.col1);
         // TODO: Dirty hack. Support multiline idents
         auto qfEndPos   = qf.col2 - qf.col1 + qfStartPos;
-        qDebug() << qfStartPos << curPos << qfEndPos;
         if (curPos >= qfStartPos && curPos <= qfEndPos)
             hook(qf);
     }
@@ -809,9 +789,9 @@ void RubocopHighlighter::finishRuboCopHighlight()
     QString clas = root.value("class").toString();
     if (clas == "return") {
         if (d->fsm()->isActive("codeSent")) {
-            qDebug() << "Got a result in a state codeSent";
+//            qDebug() << "Got a result in a state codeSent";
             d->sendFSMevent("diagnosticsReceived");
-            qDebug() << "json is " << root;
+//            qDebug() << "json is   " << root;
             d->parseDiagnosticsJson(root.value("value"),
                                     dynamic_cast<MerlinRequestErrors*>(lastRequest.data()) );
         } else if (d->fsm()->isActive("GoToDefSent")) {
@@ -850,6 +830,15 @@ void RubocopHighlighter::finishRuboCopHighlight()
 
 void RubocopHighlighter::generalMsg(const QString &msg) const {
     Core::MessageManager::instance()->write(msg);
+}
+
+void jsonParseStartEnd(const QJsonObject& o, int& line1, int& col1, int& line2, int&col2) {
+    const QJsonObject& start = o.value("start").toObject();
+    const QJsonObject& end   = o.value("end").toObject();
+    line1 = start.value("line").toInt();
+    col1  = start.value("col").toInt();
+    line2 = end.value("line").toInt();
+    col2  = end.value("col").toInt();
 }
 
 }
