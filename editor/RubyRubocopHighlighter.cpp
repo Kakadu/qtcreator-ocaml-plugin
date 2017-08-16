@@ -569,7 +569,11 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
         offenses << taskInfo.toHighlightResult(r);
         using namespace ProjectExplorer;
         TaskHub::instance()->addTask(taskInfo.typ, taskInfo.message,
-                                     Constants::TASK_CATEGORY_MERLIN_COMPILE);
+                                     Constants::TASK_CATEGORY_MERLIN_COMPILE,
+                                     document->filePath(),
+                                     r.startLine
+                                     );
+
     }
     {
     RubocopFuture rubocopFuture(offenses);
