@@ -72,6 +72,7 @@ struct MerlinQuickFix {
         : line1(_line), col1(_col), startPos(), endPos()
         , new_values(_ss)
     {
+        Q_UNUSED(_old);
     }
     MerlinQuickFix() {}
     MerlinQuickFix(const MerlinQuickFix& );

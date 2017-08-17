@@ -523,7 +523,8 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
         const auto vo = v.toObject();
         Range r;
         jsonParseStartEnd(vo, r.startLine, r.startCol, r.endLine, r.endCol);
-
+        r.startCol++;
+        r.endCol++;  // because QtC enumerates colums from 1
         r.pos = lineColumnToPos(document->document(), r.startLine, r.startCol);
         const int pos2 = lineColumnToPos(document->document(), r.endLine, r.endCol);
         r.length = pos2 - r.pos;
