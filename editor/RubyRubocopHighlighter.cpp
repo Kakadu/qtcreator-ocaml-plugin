@@ -201,14 +201,18 @@ MerlinQuickFix::MerlinQuickFix(const MerlinQuickFix &z)
 {
 }
 
+struct WholeDiags {
+    Diagnostics diags;
+    QVector<MerlinQuickFix> quickFixes;
+    explicit WholeDiags() {}
+};
 
 class RubocopHighlighterPrivate
 {
     RubocopHighlighter *q_ptr;
     Q_DECLARE_PUBLIC(RubocopHighlighter)
 public:
-    QHash<Utils::FileName, Diagnostics> m_diagnostics;
-    QHash<Utils::FileName, QVector<MerlinQuickFix> > m_quickFixes;
+    QHash<Utils::FileName, WholeDiags> m_diagsHash;
     QHash<int, QTextCharFormat> m_extraFormats;
     MerlinFSM* m_chart;
     QProcess *m_rubocop;
@@ -220,7 +224,7 @@ public:
 
 public:
     RubocopHighlighterPrivate(RubocopHighlighter *q) : q_ptr(q)
-      , m_diagnostics(), m_quickFixes()
+      , m_diagsHash()
       , m_extraFormats()
       , m_chart(nullptr), m_rubocop(nullptr)
       , m_rubocopFound(), m_busy()
@@ -242,27 +246,7 @@ public:
         m.insert("CodeSent", false);
         m.insert("completionsSent", false);
         m_chart->setInitialValues(m);
-#if 0
-        static QVector<QString> connectedStates;
-        connectedStates << "Default" << "CodeSent"
-    //                    << "DiagnosticsAsked" << "GoToDefault"
-                           ;
 
-        foreach (const QString& s, connectedStates) {
-            m_chart.connectToState(s, [s](bool b) {
-                qDebug() << qPrintable(QString("MerlinFSM in state %1 (%2)")
-                                       .arg(s).arg(b));
-            });
-        }
-
-        m_chart.connectToEvent("entry_to_on", [](const QScxmlEvent &event) {
-            qDebug() << "MerlinFSM got event " << event.name();
-        });
-
-        connect(&m_chart, &MerlinFSM::log, [](const QString&a, const QString&b) {
-           qDebug() << "MerlinFSM::log: " << a << " " << b;
-        });
-    #endif
         m_chart->init();
         m_chart->start();
         Q_ASSERT(m_chart->isInitialized());
@@ -276,7 +260,13 @@ public:
         }
     }
 
-    QHash<Utils::FileName, Diagnostics> diags() { return m_diagnostics; }
+    QHash<Utils::FileName, WholeDiags> diags() { return m_diagsHash; }
+    const WholeDiags diagsForFile(const Utils::FileName &fn) const {
+        auto it = m_diagsHash.find(fn);
+        if (it == m_diagsHash.end())
+            return WholeDiags();
+        return *it;
+    }
     MerlinFSM* chart() { return m_chart; }
     MerlinFSM* fsm()   { return chart(); }
     QProcess*  proc()  { return m_rubocop; }
@@ -498,6 +488,7 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
         return;
     }
 
+    auto curInfo = m_diagsHash[document->filePath()];
     {
         QVector<MerlinQuickFix> curQf;
         foreach (auto v, qfArr) {
@@ -514,10 +505,10 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
             qf.endPos   = lineColumnToPos(req->document()->document(), qf.line2, qf.col2);
             curQf.append(qf);
         }
-        m_quickFixes[document->filePath()] = curQf;
+        curInfo.quickFixes = curQf;
     }
 
-    diags = m_diagnostics[document->filePath()] = Diagnostics();
+    diags = curInfo.diags = Diagnostics();
     diags.setValid();
     foreach (const QJsonValue& v, errorsArr) {
         const auto vo = v.toObject();
@@ -626,8 +617,8 @@ QString RubocopHighlighter::diagnosticAt(const Utils::FileName &file, int pos)
     if (it == d->diags().end())
         return QString();
 
-    if (it->messages.keys().count()>0)
-        return it->messages[Range(pos + 1, 0)];
+    if (it->diags.messages.keys().count()>0)
+        return it->diags.messages[Range(pos + 1, 0)];
     else
         return "";
 }
@@ -696,7 +687,7 @@ void OCamlCreator::RubocopHighlighter::enumerateQuickFixes(const TextEditor::Qui
     auto path = iface->fileName();
     // iface->fileName() actually contains full path
 
-    foreach (auto qf, d->m_quickFixes[Utils::FileName::fromString(path)]) {
+    foreach (auto qf, d->diags()[Utils::FileName::fromString(path)].quickFixes) {
         auto qfStartPos = d->lineColumnToPos(iface->textDocument(), qf.line1, qf.col1);
         // TODO: Dirty hack. Support multiline idents
         auto qfEndPos   = qf.col2 - qf.col1 + qfStartPos;
