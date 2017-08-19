@@ -96,6 +96,22 @@ bool Plugin::initialize(const QStringList &, QString *errorString)
     QAction *switchAct = new QAction(tr("Switch Impl/Intf"), this);
     cmd = ActionManager::registerAction(switchAct, Constants::SWITCH_INTF_IMPL, context);
     cmd->setDefaultKeySequence(QKeySequence(tr("F4")));
+    connect(switchAct, &QAction::triggered, []() {
+        auto w = currentOCamlEditorWidget();
+        if (w) {
+            auto curPath = w->textDocument()->filePath();
+            QString askedFile;
+            if (curPath.endsWith(".ml"))
+                askedFile = curPath.toUserOutput() + "i";
+            else if (curPath.endsWith(".mli")) {
+                askedFile = curPath.toUserOutput();
+                askedFile.chop(1);
+            }
+
+            if (!askedFile.isEmpty() && Utils::FileName::fromString(askedFile).exists())
+                EditorManager::openEditor(askedFile);
+        }
+    });
     contextMenu->addAction(cmd);
     ocamlToolsMenu->addAction(cmd);
 
