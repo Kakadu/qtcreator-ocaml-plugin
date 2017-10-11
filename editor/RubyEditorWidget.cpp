@@ -20,6 +20,8 @@
 #include <QtGui/QTextCursor>
 #include <QtWidgets/QMenu>
 
+#define DISABLE_CUSTOM_CODEMODEL
+
 namespace OCamlCreator {
 
 const int CODEMODEL_UPDATE_INTERVAL = 150;
@@ -33,9 +35,13 @@ EditorWidget::EditorWidget()
 {
     setLanguageSettingsId(Constants::OCaml::SettingsId);
 
-    m_commentDefinition.multiLineStart.clear();
-    m_commentDefinition.multiLineEnd.clear();
-    m_commentDefinition.singleLine = '#';
+//    m_commentDefinition.multiLineStart.clear();
+//    m_commentDefinition.multiLineEnd.clear();
+//    m_commentDefinition.singleLine = '#';
+
+    m_commentDefinition.multiLineStart = "(*";
+    m_commentDefinition.multiLineEnd = "*)";
+    m_commentDefinition.singleLine.clear();
 
 //    m_updateCodeModelTimer.setSingleShot(true);
 //    m_updateCodeModelTimer.setInterval(CODEMODEL_UPDATE_INTERVAL);
@@ -101,6 +107,8 @@ void EditorWidget::findUsages()
 
 void EditorWidget::scheduleCodeModelUpdate()
 {
+    qDebug() << Q_FUNC_INFO;
+
     m_codeModelUpdatePending = m_updateCodeModelTimer.isActive();
     if (m_codeModelUpdatePending)
         return;
@@ -113,11 +121,12 @@ void EditorWidget::scheduleCodeModelUpdate()
 void EditorWidget::updateCodeModel()
 {
     const QString textData = textDocument()->plainText();
-    CodeModel::instance()->updateFile(textDocument()->filePath().toString(), textData);
+    //CodeModel::instance()->updateFile(textDocument()->filePath().toString(), textData);
 }
 
 void EditorWidget::scheduleRubocopUpdate()
 {
+    qDebug() << Q_FUNC_INFO;
     m_rubocopUpdatePending = m_updateRubocopTimer.isActive();
     if (m_rubocopUpdatePending)
         return;
@@ -181,8 +190,9 @@ void EditorWidget::contextMenuEvent(QContextMenuEvent *e)
 }
 void EditorWidget::finalizeInitialization()
 {
+    qDebug() << Q_FUNC_INFO;
     // TODO: we probably do not need code model update in presence of merlin
-    connect(document(), &QTextDocument::contentsChanged, this, &EditorWidget::scheduleCodeModelUpdate);
+//    connect(document(), &QTextDocument::contentsChanged, this, &EditorWidget::scheduleCodeModelUpdate);
     connect(document(), &QTextDocument::contentsChanged, this, &EditorWidget::scheduleRubocopUpdate);
 }
 
