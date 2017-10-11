@@ -7,6 +7,8 @@
 #include <texteditor/texteditor.h>
 #include <utils/uncommentselection.h>
 
+namespace Utils {class FileName; }
+
 namespace OCamlCreator {
 
 class AmbigousMethodAssistProvider;
@@ -24,17 +26,21 @@ public:
     void aboutToOpen(const QString &fileName, const QString &realFileName) override;
     void findUsages();
 
-    virtual void openLinkUnderCursor();
+    virtual void openLinkUnderCursor() Q_DECL_OVERRIDE;
 protected:
     void finalizeInitialization() override;
     void contextMenuEvent(QContextMenuEvent *) override;
 
-private:
+private slots:
     void scheduleCodeModelUpdate();
 
     void scheduleRubocopUpdate();
     void updateCodeModel();
     void updateRubocop();
+
+    void onCodeWarningsUpdated(const Utils::FileName& name,
+                               unsigned revision,
+                               const TextEditor::RefactorMarkers &refactorMarkers);
 
 private:
     QRegularExpression m_wordRegex;

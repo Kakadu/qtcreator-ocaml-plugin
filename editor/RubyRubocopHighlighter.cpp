@@ -1,6 +1,7 @@
 #include "OCamlCompletionAssist.cpp"
 #include "RubyRubocopHighlighter.h"
 
+#include <texteditor/refactoroverlay.h>
 #include <texteditor/textdocument.h>
 #include <texteditor/semantichighlighter.h>
 #include <texteditor/codeassist/genericproposal.h>
@@ -98,7 +99,6 @@ public:
         //qDebug() << "Request for asking erros on file" << _doc->filePath();
     }
     virtual ~MerlinRequestErrors() {
-        //qDebug() << Q_FUNC_INFO << this;
     }
 
     const QString fsmEvent() const Q_DECL_OVERRIDE { return "sendCode"; }
@@ -204,6 +204,7 @@ MerlinQuickFix::MerlinQuickFix(const MerlinQuickFix &z)
 struct WholeDiags {
     Diagnostics diags;
     QVector<MerlinQuickFix> quickFixes;
+    TextEditor::RefactorMarkers  markers;
     explicit WholeDiags() {}
 };
 
@@ -328,6 +329,7 @@ void RubocopHighlighterPrivate::sendTopMessage()
 
     auto msg = m_msgQueue.head();
     initRubocopProcess(msg->args);
+
     const QByteArray& file = msg->text().toLocal8Bit();
     proc()->write(file.data(), file.length());
     setBusy(true);
@@ -454,6 +456,20 @@ void RubocopHighlighterPrivate::parseCompletionsJson(const QJsonValue& resp, Mer
     }
 }
 
+
+QTextCursor cursorAtLastPositionOfLine(QTextDocument *textDocument, int lineNumber)
+{
+    const QTextBlock textBlock = textDocument->findBlockByNumber(lineNumber - 1);
+    QTC_ASSERT(textBlock.isValid(), return QTextCursor());
+
+    const int lastPositionOfLine = textBlock.position() + textBlock.length() - 1;
+
+    QTextCursor textCursor(textDocument);
+    textCursor.setPosition(lastPositionOfLine);
+
+    return textCursor;
+}
+
 void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, MerlinRequestErrors* req)
 {
     Diagnostics diags;
@@ -491,6 +507,7 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
     auto curInfo = m_diagsHash[document->filePath()];
     {
         QVector<MerlinQuickFix> curQf;
+        curInfo.markers.clear();
         foreach (auto v, qfArr) {
             auto vo = v.toObject();
             auto qf = MerlinQuickFix();
@@ -504,8 +521,16 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
             qf.startPos = lineColumnToPos(req->document()->document(), qf.line1, qf.col1);
             qf.endPos   = lineColumnToPos(req->document()->document(), qf.line2, qf.col2);
             curQf.append(qf);
+
+            auto marker = TextEditor::RefactorMarker();
+            marker.tooltip = qf.new_values.join(" ");
+            auto textDocument = req->document()->document();
+            marker.cursor = cursorAtLastPositionOfLine(textDocument, qf.line1);
+
+            curInfo.markers.append(marker);
         }
         curInfo.quickFixes = curQf;
+
     }
 
     diags = curInfo.diags = Diagnostics();
@@ -560,6 +585,9 @@ void RubocopHighlighterPrivate::parseDiagnosticsJson(const QJsonValue& resp, Mer
                                                                             rubocopFuture.future(), 0,
                                                                             offenses.count(), m_extraFormats);
 //    q->generalMsg(QString("Got %1 offenses").arg(offenses.length()));
+    emit q->codeWarningsUpdated(req->document()->filePath(),
+                                req->document()->document()->revision(),
+                                curInfo.markers );
     }
 }
 
@@ -730,7 +758,12 @@ void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
     // http://stackoverflow.com/questions/19409940/how-to-get-output-system-command-in-qt
     auto new_args = args;
     new_args.push_front("single");
-    static const QString opamPath = "/home/kakadu/.opam/4.04.0+fp+flambda/bin/";
+    //TODO: We should start `opam config env` on startup and get env vars from there.
+    static const QString opamPath =
+//            "/home/kakadu/.opam/4.04.0+fp+flambda/bin/";
+            "/home/kakadu/.opam/4.02.2+multicore+moreplugins/bin/"
+//            ""
+            ;
     m_rubocop->processEnvironment().insert("MERLIN_LOG"," /tmp/merlin.qtcreator.log");
     setBusy(true);
     m_rubocop->start(opamPath + "ocamlmerlin", new_args);
@@ -739,7 +772,6 @@ void RubocopHighlighterPrivate::initRubocopProcess(const QStringList& args)
 
 void RubocopHighlighter::finishRuboCopHighlight()
 {
-    qDebug() << Q_FUNC_INFO;
     Q_D(RubocopHighlighter);
 
     //TODO: check the revision

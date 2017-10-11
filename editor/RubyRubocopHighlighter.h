@@ -2,6 +2,7 @@
 #define Ruby_RubocopHighlighter_h
 
 #include <texteditor/semantichighlighter.h>
+#include <texteditor/refactoroverlay.h>
 #include <texteditor/quickfix.h> // can't use forward declarations because of typedef's and inner classes
 
 #include <utils/fileutils.h>
@@ -121,6 +122,11 @@ public:
 
     void enumerateQuickFixes(const TextEditor::QuickFixInterface &iface,
                              const std::function<void(const MerlinQuickFix&)> &hook);
+
+signals:
+    void codeWarningsUpdated(const Utils::FileName& name,
+                               unsigned revision,
+                               const TextEditor::RefactorMarkers &refactorMarkers);
 private:
     int m_startRevision;
 

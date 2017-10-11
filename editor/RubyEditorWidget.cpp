@@ -35,16 +35,12 @@ EditorWidget::EditorWidget()
 {
     setLanguageSettingsId(Constants::OCaml::SettingsId);
 
-//    m_commentDefinition.multiLineStart.clear();
-//    m_commentDefinition.multiLineEnd.clear();
-//    m_commentDefinition.singleLine = '#';
-
     m_commentDefinition.multiLineStart = "(*";
-    m_commentDefinition.multiLineEnd = "*)";
+    m_commentDefinition.multiLineEnd   = "*)";
     m_commentDefinition.singleLine.clear();
 
-//    m_updateCodeModelTimer.setSingleShot(true);
-//    m_updateCodeModelTimer.setInterval(CODEMODEL_UPDATE_INTERVAL);
+    m_updateCodeModelTimer.setSingleShot(true);
+    m_updateCodeModelTimer.setInterval(CODEMODEL_UPDATE_INTERVAL);
 //    connect(&m_updateCodeModelTimer, &QTimer::timeout, this, [this] {
 //        if (m_codeModelUpdatePending)
 //            updateCodeModel();
@@ -52,11 +48,13 @@ EditorWidget::EditorWidget()
 
     m_updateRubocopTimer.setSingleShot(true);
     m_updateRubocopTimer.setInterval(RUBOCOP_UPDATE_INTERVAL);
-    connect(&m_updateRubocopTimer, &QTimer::timeout, this, [this] {
-        if (m_rubocopUpdatePending)
-            updateRubocop();
-    });
+//    connect(&m_updateRubocopTimer, &QTimer::timeout, this, [this] {
+//        if (m_rubocopUpdatePending)
+//            updateRubocop();
+//    });
 
+    connect(RubocopHighlighter::instance(), &RubocopHighlighter::codeWarningsUpdated,
+            this, &EditorWidget::onCodeWarningsUpdated );
     CodeModel::instance();
 }
 
@@ -94,7 +92,6 @@ void EditorWidget::aboutToOpen(const QString &fileName, const QString &realFileN
 
 void EditorWidget::findUsages()
 {
-    // TODO: use TextEditor::Concenience::convertPosition
     auto cursor = textCursor();
     QString text = cursor.block().text();
     if (text.isEmpty())
@@ -108,7 +105,6 @@ void EditorWidget::findUsages()
 void EditorWidget::scheduleCodeModelUpdate()
 {
     qDebug() << Q_FUNC_INFO;
-
     m_codeModelUpdatePending = m_updateCodeModelTimer.isActive();
     if (m_codeModelUpdatePending)
         return;
@@ -188,6 +184,26 @@ void EditorWidget::contextMenuEvent(QContextMenuEvent *e)
         return;
     delete menu;
 }
+
+void EditorWidget::onCodeWarningsUpdated(const Utils::FileName& name,
+                                         unsigned revision,
+                                         //const QList<QTextEdit::ExtraSelection> selections,
+                                         const TextEditor::RefactorMarkers &refactorMarkers)
+{
+    if (name != textDocument()->filePath())
+        // It's a dirty hack. We should probably has separate analyzer for every document
+        return;
+
+    Q_UNUSED(revision);
+    Q_UNUSED(refactorMarkers);
+    qDebug() << Q_FUNC_INFO << refactorMarkers.size();
+//    if (revision != documentRevision())
+//        return;
+
+//    setExtraSelections(TextEditorWidget::CodeWarningsSelection, selections);
+    setRefactorMarkers(refactorMarkers);
+}
+
 void EditorWidget::finalizeInitialization()
 {
     qDebug() << Q_FUNC_INFO;

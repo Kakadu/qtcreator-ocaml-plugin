@@ -7,3 +7,8 @@ void fib_helper22(int n, int a, int b) {
 void fib(int n) {
     fib_helper22(n,1,1);
 }
+
+
+class A {
+
+} /* */
